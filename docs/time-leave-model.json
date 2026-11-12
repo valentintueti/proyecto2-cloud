@@ -1,0 +1,41 @@
+{
+  "attendance": {
+    "PK": "TENANT#acme",
+    "SK": "ATT#empleado@acme.com#2026-11-12",
+    "tenantId": "acme",
+    "email": "empleado@acme.com",
+    "date": "2026-11-12",
+    "checkIn": "2026-11-12T08:58:00-05:00",
+    "checkOut": "2026-11-12T18:03:00-05:00",
+    "workedMinutes": 545
+  },
+  "leaveRequest": {
+    "PK": "TENANT#acme",
+    "SK": "LEAVE#<requestId>",
+    "GSI1PK": "TENANT#acme#EMP#empleado@acme.com",
+    "GSI1SK": "LEAVE#2026-12-20",
+    "GSI2PK": "TENANT#acme#LEAVE#PENDING",
+    "GSI2SK": "2026-12-20#<requestId>",
+    "tenantId": "acme",
+    "requestId": "uuid",
+    "email": "empleado@acme.com",
+    "type": "VACATION | SICK | PERSONAL",
+    "startDate": "2026-12-20",
+    "endDate": "2026-12-27",
+    "days": 6,
+    "reason": "texto",
+    "status": "PENDING | APPROVED | REJECTED | CANCELLED",
+    "decidedBy": "jefe@acme.com",
+    "decidedAt": "ISO-8601",
+    "createdAt": "ISO-8601"
+  },
+  "balance": {
+    "PK": "TENANT#acme",
+    "SK": "BALANCE#empleado@acme.com#2026",
+    "tenantId": "acme",
+    "email": "empleado@acme.com",
+    "year": 2026,
+    "vacationDays": 30,
+    "usedDays": 6
+  }
+}
