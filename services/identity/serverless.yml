@@ -1,0 +1,152 @@
+service: hcm-identity
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  tableName: ${self:service}-${sls:stage}
+  pythonRequirements:
+    dockerizePip: false
+    slim: true
+    noDeploy: [boto3, botocore]
+  authorizer:
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 10
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: identity
+    TABLE_NAME: ${self:custom.tableName}
+    EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
+    JWT_SECRET: ${env:JWT_SECRET}
+    JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '8h'}
+    PLATFORM_ADMIN_KEY: ${env:PLATFORM_ADMIN_KEY}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler   # viene del layer
+
+  createTenant:
+    handler: src/handlers/tenants.create
+    events:
+      - http: { path: tenants, method: post, cors: true }
+
+  login:
+    handler: src/handlers/auth.login
+    events:
+      - http: { path: auth/login, method: post, cors: true }
+
+  me:
+    handler: src/handlers/auth.me
+    events:
+      - http: { path: me, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+
+  listUsers:
+    handler: src/handlers/users.list_users
+    events:
+      - http: { path: users, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+
+  createUser:
+    handler: src/handlers/users.create_user
+    events:
+      - http: { path: users, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+
+  updateUser:
+    handler: src/handlers/users.update_user
+    events:
+      - http: { path: 'users/{email}', method: patch, cors: true, authorizer: ${self:custom.authorizer} }
+
+  onEmployeeEvent:
+    handler: src/handlers/on_employee_event.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [IdentityQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    IdentityTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: PK, AttributeType: S }
+          - { AttributeName: SK, AttributeType: S }
+        KeySchema:
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
+
+    IdentityDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-dlq
+        MessageRetentionPeriod: 1209600
+
+    IdentityQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-events
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: { Fn::GetAtt: [IdentityDLQ, Arn] }
+          maxReceiveCount: 3
+
+    IdentityQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues: [{ Ref: IdentityQueue }]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: sns.amazonaws.com }
+              Action: sqs:SendMessage
+              Resource: { Fn::GetAtt: [IdentityQueue, Arn] }
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.eventsTopicArn}
+
+    IdentitySubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [IdentityQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy:
+          eventType: [EmployeeCreated, EmployeeTerminated]
+
+    # CORS también en los 401/403 que devuelve el authorizer
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"

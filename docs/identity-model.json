@@ -1,0 +1,25 @@
+{
+  "tenant": {
+    "PK": "TENANT#acme",
+    "SK": "PROFILE",
+    "tenantId": "acme",
+    "name": "Acme S.A.C.",
+    "plan": "standard",
+    "status": "ACTIVE",
+    "createdAt": "2026-11-12T15:00:00+00:00"
+  },
+  "user": {
+    "PK": "TENANT#acme",
+    "SK": "USER#ana@acme.com",
+    "tenantId": "acme",
+    "userId": "ana@acme.com",
+    "email": "ana@acme.com",
+    "name": "Ana Pérez",
+    "role": "ADMIN_RRHH | MANAGER | EMPLOYEE",
+    "status": "ACTIVE | INVITED | DISABLED",
+    "passwordHash": "pbkdf2_sha256$100000$<salt>$<hash>",
+    "employeeId": "opcional, lo llena el evento EmployeeCreated",
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+}
