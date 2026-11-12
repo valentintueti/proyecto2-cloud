@@ -1,2 +1,4 @@
 -r shared/requirements.txt
 pytest==8.3.3
+boto3==1.35.54
+moto[sns,sqs,dynamodb,s3]==5.0.18

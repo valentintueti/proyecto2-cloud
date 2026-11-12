@@ -98,6 +98,8 @@ def handle_errors(func):
             return unauthorized(str(exc))
         except (TenantError, PermissionError) as exc:
             return forbidden(str(exc))
+        except ConflictError as e:
+            return conflict(str(e))
         except ValueError as exc:
             return bad_request(str(exc))
         except Exception:
@@ -105,3 +107,37 @@ def handle_errors(func):
             return server_error()
 
     return wrapper
+
+class ConflictError(ValueError):
+    """Recurso duplicado. Hereda de ValueError para no romper código existente."""
+
+
+def path_param(event, name):
+    value = (event.get("pathParameters") or {}).get(name)
+    if not value:
+        raise ValueError(f"Falta el parámetro de ruta '{name}'")
+    return value
+
+
+def query_param(event, name, default=None):
+    return (event.get("queryStringParameters") or {}).get(name, default)
+
+
+def get_limit(event, default=20, maximum=100):
+    raw = query_param(event, "limit")
+    if raw is None:
+        return default
+    try:
+        limit = int(raw)
+    except ValueError:
+        raise ValueError("limit debe ser un entero")
+    if not 1 <= limit <= maximum:
+        raise ValueError(f"limit debe estar entre 1 y {maximum}")
+    return limit
+
+
+def require_fields(body, *fields):
+    missing = [f for f in fields if body.get(f) in (None, "")]
+    if missing:
+        raise ValueError(f"Faltan campos: {', '.join(missing)}")
+    return body
