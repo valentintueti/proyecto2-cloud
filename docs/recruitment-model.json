@@ -1,0 +1,42 @@
+{
+  "job": {
+    "PK": "TENANT#acme",
+    "SK": "JOB#<jobId>",
+    "tenantId": "acme",
+    "jobId": "uuid",
+    "title": "<título del puesto>",
+    "departmentId": "uuid (opcional)",
+    "description": "texto",
+    "location": "<ciudad>",
+    "openings": 2,
+    "status": "OPEN | CLOSED",
+    "createdBy": "admin@acme.com",
+    "createdAt": "ISO-8601",
+    "updatedAt": "ISO-8601"
+  },
+  "application": {
+    "PK": "TENANT#acme",
+    "SK": "APP#<jobId>#<applicationId>",
+    "tenantId": "acme",
+    "applicationId": "uuid",
+    "jobId": "uuid",
+    "firstName": "<nombre>",
+    "lastName": "<apellido>",
+    "email": "postulante@mail.com",
+    "phone": "+51...",
+    "stage": "APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED",
+    "cvKey": "tenants/acme/cvs/<applicationId>/cv.pdf o null",
+    "notes": "texto",
+    "createdAt": "ISO-8601",
+    "updatedAt": "ISO-8601"
+  },
+  "accessPatterns": {
+    "Vacantes del tenant": "Query PK = TENANT#<tenantId>, SK begins_with JOB#",
+    "Una vacante": "GetItem PK = TENANT#<tenantId>, SK = JOB#<jobId>",
+    "Postulaciones de una vacante": "Query PK = TENANT#<tenantId>, SK begins_with APP#<jobId>#",
+    "Una postulación": "GetItem PK = TENANT#<tenantId>, SK = APP#<jobId>#<applicationId>"
+  },
+  "s3": {
+    "cv": "tenants/<tenantId>/cvs/<applicationId>/<fileName saneado>"
+  }
+}
