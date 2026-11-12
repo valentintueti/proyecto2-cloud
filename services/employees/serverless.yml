@@ -1,0 +1,179 @@
+service: hcm-employees
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  pythonRequirements:
+    dockerizePip: false
+    slim: true
+    noDeploy: [boto3, botocore]
+  authorizer:
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 15
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: employees
+    EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
+    JWT_SECRET: ${env:JWT_SECRET}
+    DB_HOST: ${env:DB_HOST}
+    DB_PORT: ${env:DB_PORT, '5432'}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_EMPLOYEES_NAME}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler
+
+  listEmployees:
+    handler: src/handlers/employees.list_employees
+    events:
+      - http: { path: employees, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+  getEmployee:
+    handler: src/handlers/employees.get_employee
+    events:
+      - http: { path: 'employees/{id}', method: get, cors: true, authorizer: ${self:custom.authorizer} }
+  createEmployee:
+    handler: src/handlers/employees.create_employee
+    events:
+      - http: { path: employees, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+  updateEmployee:
+    handler: src/handlers/employees.update_employee
+    events:
+      - http: { path: 'employees/{id}', method: patch, cors: true, authorizer: ${self:custom.authorizer} }
+  terminateEmployee:
+    handler: src/handlers/employees.terminate_employee
+    events:
+      - http: { path: 'employees/{id}/terminate', method: post, cors: true, authorizer: ${self:custom.authorizer} }
+
+  listDepartments:
+    handler: src/handlers/departments.list_departments
+    events:
+      - http: { path: departments, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+  createDepartment:
+    handler: src/handlers/departments.create_department
+    events:
+      - http: { path: departments, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+
+  listPositions:
+    handler: src/handlers/positions.list_positions
+    events:
+      - http: { path: positions, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+  createPosition:
+    handler: src/handlers/positions.create_position
+    events:
+      - http: { path: positions, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+
+  onTenantCreated:
+    handler: src/handlers/on_tenant_created.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [TenantQueue, Arn] }
+          batchSize: 5
+          functionResponseType: ReportBatchItemFailures
+
+  onCandidateHired:
+    handler: src/handlers/on_candidate_hired.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [HiringQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    EmployeesDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-dlq
+        MessageRetentionPeriod: 1209600
+
+    TenantQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-tenant-created
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: { Fn::GetAtt: [EmployeesDLQ, Arn] }
+          maxReceiveCount: 3
+
+    HiringQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-candidate-hired
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: { Fn::GetAtt: [EmployeesDLQ, Arn] }
+          maxReceiveCount: 3
+
+    EmployeesQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues: [{ Ref: TenantQueue }, { Ref: HiringQueue }]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: sns.amazonaws.com }
+              Action: sqs:SendMessage
+              Resource:
+                - { Fn::GetAtt: [TenantQueue, Arn] }
+                - { Fn::GetAtt: [HiringQueue, Arn] }
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.eventsTopicArn}
+
+    TenantSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [TenantQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy:
+          eventType: [TenantCreated]
+
+    HiringSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [HiringQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy:
+          eventType: [CandidateHired]
+
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
