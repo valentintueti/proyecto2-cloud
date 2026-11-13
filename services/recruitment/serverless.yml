@@ -14,7 +14,7 @@ custom:
   pythonRequirements:
     dockerizePip: false
     pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
-    slim: true
+    slim: false   # slim borra *.dist-info y scramp (pg8000) necesita su metadata
     noDeploy: [boto3, botocore]
   authorizer: &authorizer
     name: authorizer
