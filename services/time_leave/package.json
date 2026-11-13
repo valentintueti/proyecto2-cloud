@@ -1,0 +1,8 @@
+{
+  "name": "hcm-time-leave",
+  "private": true,
+  "devDependencies": {
+    "serverless": "3.39.0",
+    "serverless-python-requirements": "6.1.1"
+  }
+}

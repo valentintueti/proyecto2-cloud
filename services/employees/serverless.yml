@@ -10,9 +10,10 @@ custom:
   eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
   pythonRequirements:
     dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
     slim: true
     noDeploy: [boto3, botocore]
-  authorizer:
+  authorizer: &authorizer
     name: authorizer
     type: token
     identitySource: method.request.header.Authorization
@@ -33,8 +34,8 @@ provider:
     SERVICE_NAME: employees
     EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
     JWT_SECRET: ${env:JWT_SECRET}
-    DB_HOST: ${env:DB_HOST}
-    DB_PORT: ${env:DB_PORT, '5432'}
+    DB_HOST: ${cf:${self:custom.infraStack}.DbHost}
+    DB_PORT: ${cf:${self:custom.infraStack}.DbPort}
     DB_USER: ${env:DB_USER}
     DB_PASSWORD: ${env:DB_PASSWORD}
     DB_NAME: ${env:DB_EMPLOYEES_NAME}
@@ -52,41 +53,41 @@ functions:
   listEmployees:
     handler: src/handlers/employees.list_employees
     events:
-      - http: { path: employees, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: employees, method: get, cors: true, authorizer: *authorizer }
   getEmployee:
     handler: src/handlers/employees.get_employee
     events:
-      - http: { path: 'employees/{id}', method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: 'employees/{id}', method: get, cors: true, authorizer: *authorizer }
   createEmployee:
     handler: src/handlers/employees.create_employee
     events:
-      - http: { path: employees, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: employees, method: post, cors: true, authorizer: *authorizer }
   updateEmployee:
     handler: src/handlers/employees.update_employee
     events:
-      - http: { path: 'employees/{id}', method: patch, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: 'employees/{id}', method: patch, cors: true, authorizer: *authorizer }
   terminateEmployee:
     handler: src/handlers/employees.terminate_employee
     events:
-      - http: { path: 'employees/{id}/terminate', method: post, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: 'employees/{id}/terminate', method: post, cors: true, authorizer: *authorizer }
 
   listDepartments:
     handler: src/handlers/departments.list_departments
     events:
-      - http: { path: departments, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: departments, method: get, cors: true, authorizer: *authorizer }
   createDepartment:
     handler: src/handlers/departments.create_department
     events:
-      - http: { path: departments, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: departments, method: post, cors: true, authorizer: *authorizer }
 
   listPositions:
     handler: src/handlers/positions.list_positions
     events:
-      - http: { path: positions, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: positions, method: get, cors: true, authorizer: *authorizer }
   createPosition:
     handler: src/handlers/positions.create_position
     events:
-      - http: { path: positions, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: positions, method: post, cors: true, authorizer: *authorizer }
 
   onTenantCreated:
     handler: src/handlers/on_tenant_created.handler

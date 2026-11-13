@@ -9,3 +9,9 @@ __pycache__/
 # Entornos virtuales
 .venv/
 venv/
+
+# Node / Serverless
+node_modules/
+.serverless/
+.requirements/
+.requirements.zip

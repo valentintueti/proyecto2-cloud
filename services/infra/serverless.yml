@@ -1,0 +1,75 @@
+service: hcm-infra
+frameworkVersion: '3'
+
+# Recursos compartidos por todos los microservicios. Se despliega PRIMERO.
+# Los demás servicios leen sus Outputs con ${cf:hcm-infra-<stage>.<Output>}.
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+
+layers:
+  common:
+    path: ../../shared            # el zip queda como python/common/... → /opt/python/common
+    name: hcm-common-${sls:stage}
+    description: Paquete common compartido por los microservicios HCM
+    compatibleRuntimes:
+      - python3.12
+    package:
+      patterns:
+        - '!**'
+        - 'python/common/**'
+        - '!python/**/__pycache__/**'
+
+resources:
+  Resources:
+    # Bus de eventos: cada microservicio suscribe su propia cola SQS con filter policy.
+    EventsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: hcm-events-${sls:stage}
+
+    # Las Lambdas corren fuera de la VPC (sin NAT perderían SNS/SQS), así que no tienen
+    # IP fija: el 5432 queda abierto y la protección es usuario + contraseña fuerte.
+    DbSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: PostgreSQL HCM (Lambdas fuera de VPC y VM de despliegue)
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 5432
+            ToPort: 5432
+            CidrIp: 0.0.0.0/0
+
+    # Una sola instancia RDS, Patrón 2: una base por microservicio SQL y un schema por tenant.
+    Database:
+      Type: AWS::RDS::DBInstance
+      DeletionPolicy: Delete
+      UpdateReplacePolicy: Delete
+      Properties:
+        DBInstanceIdentifier: hcm-db-${sls:stage}
+        Engine: postgres
+        DBInstanceClass: db.t3.micro
+        AllocatedStorage: '20'
+        StorageType: gp2
+        DBName: ${env:DB_EMPLOYEES_NAME, 'hcm_employees'}   # hcm_payroll la crea scripts/bootstrap.py
+        MasterUsername: ${env:DB_USER}
+        MasterUserPassword: ${env:DB_PASSWORD}
+        PubliclyAccessible: true
+        VPCSecurityGroups:
+          - { Fn::GetAtt: [DbSecurityGroup, GroupId] }
+        MultiAZ: false
+        BackupRetentionPeriod: 0
+        DeletionProtection: false
+
+  Outputs:
+    EventsTopicArn:
+      Value: { Ref: EventsTopic }
+    CommonLayerArn:
+      Value: { Ref: CommonLambdaLayer }
+    DbHost:
+      Value: { Fn::GetAtt: [Database, Endpoint.Address] }
+    DbPort:
+      Value: { Fn::GetAtt: [Database, Endpoint.Port] }

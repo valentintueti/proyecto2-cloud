@@ -1,0 +1,189 @@
+service: hcm-time-leave
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  tableName: ${self:service}-${sls:stage}
+  pythonRequirements:
+    dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
+    slim: true
+    noDeploy: [boto3, botocore]
+  authorizer: &authorizer
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 10
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: time_leave
+    TABLE_NAME: ${self:custom.tableName}
+    EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
+    JWT_SECRET: ${env:JWT_SECRET}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler   # viene del layer
+
+  # ── Asistencia ──
+  checkIn:
+    handler: src/handlers/attendance.check_in
+    events:
+      - http: { path: attendance/check-in, method: post, cors: true, authorizer: *authorizer }
+  checkOut:
+    handler: src/handlers/attendance.check_out
+    events:
+      - http: { path: attendance/check-out, method: post, cors: true, authorizer: *authorizer }
+  myAttendance:
+    handler: src/handlers/attendance.my_attendance
+    events:
+      - http: { path: attendance/me, method: get, cors: true, authorizer: *authorizer }
+  listAttendance:
+    handler: src/handlers/attendance.list_attendance
+    events:
+      - http: { path: attendance, method: get, cors: true, authorizer: *authorizer }
+
+  # ── Solicitudes ──
+  createLeaveRequest:
+    handler: src/handlers/leave_requests.create_request
+    events:
+      - http: { path: leave-requests, method: post, cors: true, authorizer: *authorizer }
+  myLeaveRequests:
+    handler: src/handlers/leave_requests.my_requests
+    events:
+      - http: { path: leave-requests/me, method: get, cors: true, authorizer: *authorizer }
+  listLeaveRequests:
+    handler: src/handlers/leave_requests.list_requests
+    events:
+      - http: { path: leave-requests, method: get, cors: true, authorizer: *authorizer }
+  approveLeaveRequest:
+    handler: src/handlers/leave_requests.approve
+    events:
+      - http: { path: 'leave-requests/{requestId}/approve', method: post, cors: true, authorizer: *authorizer }
+  rejectLeaveRequest:
+    handler: src/handlers/leave_requests.reject
+    events:
+      - http: { path: 'leave-requests/{requestId}/reject', method: post, cors: true, authorizer: *authorizer }
+  cancelLeaveRequest:
+    handler: src/handlers/leave_requests.cancel
+    events:
+      - http: { path: 'leave-requests/{requestId}/cancel', method: post, cors: true, authorizer: *authorizer }
+
+  # ── Saldos ──
+  myBalance:
+    handler: src/handlers/balances.my_balance
+    events:
+      - http: { path: balances/me, method: get, cors: true, authorizer: *authorizer }
+
+  # ── Eventos ──
+  onEmployeeCreated:
+    handler: src/handlers/on_employee_created.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [TimeLeaveQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    TimeLeaveTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: PK, AttributeType: S }
+          - { AttributeName: SK, AttributeType: S }
+          - { AttributeName: GSI1PK, AttributeType: S }
+          - { AttributeName: GSI1SK, AttributeType: S }
+          - { AttributeName: GSI2PK, AttributeType: S }
+          - { AttributeName: GSI2SK, AttributeType: S }
+        KeySchema:
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
+        GlobalSecondaryIndexes:
+          # Solicitudes por empleado: GSI1PK = TENANT#<id>#EMP#<email>
+          - IndexName: GSI1
+            KeySchema:
+              - { AttributeName: GSI1PK, KeyType: HASH }
+              - { AttributeName: GSI1SK, KeyType: RANGE }
+            Projection: { ProjectionType: ALL }
+          # Solicitudes por estado: GSI2PK = TENANT#<id>#LEAVE#<status>
+          - IndexName: GSI2
+            KeySchema:
+              - { AttributeName: GSI2PK, KeyType: HASH }
+              - { AttributeName: GSI2SK, KeyType: RANGE }
+            Projection: { ProjectionType: ALL }
+
+    TimeLeaveDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-dlq
+        MessageRetentionPeriod: 1209600
+
+    TimeLeaveQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-events
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: { Fn::GetAtt: [TimeLeaveDLQ, Arn] }
+          maxReceiveCount: 3
+
+    TimeLeaveQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues: [{ Ref: TimeLeaveQueue }]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: sns.amazonaws.com }
+              Action: sqs:SendMessage
+              Resource: { Fn::GetAtt: [TimeLeaveQueue, Arn] }
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.eventsTopicArn}
+
+    TimeLeaveSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [TimeLeaveQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy:
+          eventType: [EmployeeCreated]
+
+    # CORS también en los 401/403 que devuelve el authorizer
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"

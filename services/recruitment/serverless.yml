@@ -1,0 +1,141 @@
+service: hcm-recruitment
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  tableName: ${self:service}-${sls:stage}
+  bucketName: ${self:service}-${sls:stage}-${aws:accountId}
+  frontendOrigin: ${env:FRONTEND_ORIGIN, '*'}
+  pythonRequirements:
+    dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
+    slim: true
+    noDeploy: [boto3, botocore]
+  authorizer: &authorizer
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 10
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: recruitment
+    TABLE_NAME: ${self:custom.tableName}
+    BUCKET_NAME: ${self:custom.bucketName}
+    EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
+    JWT_SECRET: ${env:JWT_SECRET}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler   # viene del layer
+
+  # ── Vacantes ──
+  listJobs:
+    handler: src/handlers/jobs.list_jobs
+    events:
+      - http: { path: jobs, method: get, cors: true, authorizer: *authorizer }
+  createJob:
+    handler: src/handlers/jobs.create_job
+    events:
+      - http: { path: jobs, method: post, cors: true, authorizer: *authorizer }
+  getJob:
+    handler: src/handlers/jobs.get_job
+    events:
+      - http: { path: 'jobs/{jobId}', method: get, cors: true, authorizer: *authorizer }
+  updateJob:
+    handler: src/handlers/jobs.update_job
+    events:
+      - http: { path: 'jobs/{jobId}', method: patch, cors: true, authorizer: *authorizer }
+
+  # ── Postulaciones ──
+  listApplications:
+    handler: src/handlers/applications.list_applications
+    events:
+      - http: { path: 'jobs/{jobId}/applications', method: get, cors: true, authorizer: *authorizer }
+  createApplication:
+    handler: src/handlers/applications.create_application
+    events:
+      - http: { path: 'jobs/{jobId}/applications', method: post, cors: true, authorizer: *authorizer }
+  cvUploadUrl:
+    handler: src/handlers/applications.cv_upload_url
+    events:
+      - http: { path: 'jobs/{jobId}/applications/{applicationId}/cv-upload-url', method: post, cors: true, authorizer: *authorizer }
+  cvDownloadUrl:
+    handler: src/handlers/applications.cv_download_url
+    events:
+      - http: { path: 'jobs/{jobId}/applications/{applicationId}/cv-url', method: get, cors: true, authorizer: *authorizer }
+  changeStage:
+    handler: src/handlers/applications.change_stage
+    events:
+      - http: { path: 'jobs/{jobId}/applications/{applicationId}/stage', method: patch, cors: true, authorizer: *authorizer }
+
+resources:
+  Resources:
+    RecruitmentTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: PK, AttributeType: S }
+          - { AttributeName: SK, AttributeType: S }
+        KeySchema:
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
+
+    # CVs: tenants/{tenantId}/cvs/... Privado; el navegador sube y baja con URLs prefirmadas.
+    CvBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: [PUT, GET]
+              AllowedOrigins: ['${self:custom.frontendOrigin}']
+              AllowedHeaders: ['*']
+              ExposedHeaders: [ETag]
+              MaxAge: 3000
+
+    # CORS también en los 401/403 que devuelve el authorizer
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+
+  Outputs:
+    CvBucketName:
+      Value: { Ref: CvBucket }

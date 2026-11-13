@@ -11,9 +11,10 @@ custom:
   tableName: ${self:service}-${sls:stage}
   pythonRequirements:
     dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
     slim: true
     noDeploy: [boto3, botocore]
-  authorizer:
+  authorizer: &authorizer
     name: authorizer
     type: token
     identitySource: method.request.header.Authorization
@@ -61,22 +62,22 @@ functions:
   me:
     handler: src/handlers/auth.me
     events:
-      - http: { path: me, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: me, method: get, cors: true, authorizer: *authorizer }
 
   listUsers:
     handler: src/handlers/users.list_users
     events:
-      - http: { path: users, method: get, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: users, method: get, cors: true, authorizer: *authorizer }
 
   createUser:
     handler: src/handlers/users.create_user
     events:
-      - http: { path: users, method: post, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: users, method: post, cors: true, authorizer: *authorizer }
 
   updateUser:
     handler: src/handlers/users.update_user
     events:
-      - http: { path: 'users/{email}', method: patch, cors: true, authorizer: ${self:custom.authorizer} }
+      - http: { path: 'users/{email}', method: patch, cors: true, authorizer: *authorizer }
 
   onEmployeeEvent:
     handler: src/handlers/on_employee_event.handler
