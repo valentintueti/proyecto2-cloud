@@ -83,3 +83,10 @@ def put_bytes(tenant_id, key, body, content_type="application/octet-stream", buc
 def get_bytes(tenant_id, key, bucket=None):
     assert_tenant_key(tenant_id, key)
     return _client().get_object(Bucket=_bucket(bucket), Key=key)["Body"].read()
+
+
+def delete_object(tenant_id, key, bucket=None):
+    """Borra un objeto del tenant. S3 no falla si la key ya no existe."""
+    assert_tenant_key(tenant_id, key)
+    _client().delete_object(Bucket=_bucket(bucket), Key=key)
+    return key

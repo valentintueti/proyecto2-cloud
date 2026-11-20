@@ -2,7 +2,7 @@ from urllib.parse import unquote
 
 from common.db_dynamo import TenantTable
 from common.http import (
-    created, get_limit, handle_errors, not_found, ok, parse_body,
+    ConflictError, created, get_limit, handle_errors, no_content, not_found, ok, parse_body,
     path_param, query_param, require_fields,
 )
 from common.tenant import require_role
@@ -47,3 +47,21 @@ def update_user(event, context):
     if updated is None:
         return not_found("Usuario no encontrado")
     return ok(repo.public_user(updated))
+
+
+@handle_errors
+def delete_user(event, context):
+    ctx = require_role(event, ADMIN)
+    email = repo.normalize_email(unquote(path_param(event, "email")))
+    if email == ctx["userId"]:
+        raise ValueError("No puedes eliminar tu propio usuario")
+
+    table = TenantTable(ctx["tenantId"])
+    user = table.get(repo.user_sk(email))
+    if user is None:
+        return not_found("Usuario no encontrado")
+    if user.get("employeeId"):
+        raise ConflictError("Da de baja al empleado en lugar de borrar el usuario")
+    if not table.delete(repo.user_sk(email)):
+        return not_found("Usuario no encontrado")
+    return no_content()
