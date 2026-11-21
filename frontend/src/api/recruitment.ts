@@ -47,6 +47,13 @@ export const recruitmentApi = {
   updateJob: (jobId: string, body: Partial<JobInput>) =>
     request<Job>('recruitment', `/jobs/${enc(jobId)}`, { method: 'PATCH', body }),
 
+  /** 204 sin cuerpo. 409 si la vacante todavía tiene postulaciones. */
+  deleteJob: (jobId: string) => request<void>('recruitment', `/jobs/${enc(jobId)}`, { method: 'DELETE' }),
+
+  /** 204 sin cuerpo. 409 si la postulación está en HIRED. */
+  deleteApplication: (jobId: string, applicationId: string) =>
+    request<void>('recruitment', appPath(jobId, applicationId), { method: 'DELETE' }),
+
   listApplications: (jobId: string, params: { limit?: number; cursor?: string | null }, signal?: AbortSignal) =>
     request<CursorPage<Application>>('recruitment', `/jobs/${enc(jobId)}/applications`, {
       query: { limit: params.limit, cursor: params.cursor },

@@ -234,3 +234,88 @@ export interface Balance {
   usedDays: number;
   availableDays: number;
 }
+
+// ── Payroll ─────────────────────────────────────────────────────────────────
+/** services/payroll: los NUMERIC llegan como número (common.http convierte Decimal a int/float). */
+export type PayrollRunStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface PayrollRun {
+  runId: string;
+  /** YYYY-MM */
+  period: string;
+  status: PayrollRunStatus;
+  /** Empleados con boleta generada hasta ahora. El backend no expone el total esperado. */
+  processed: number;
+  totalGross: number;
+  totalNet: number;
+  createdBy: string;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface CreatePayrollRunRequest {
+  period: string;
+}
+
+/** Respuesta 202 de POST /payroll-runs: la corrida queda aceptada, no terminada. */
+export interface CreatePayrollRunResponse {
+  runId: string;
+  period: string;
+  status: 'PENDING';
+}
+
+export interface Payslip {
+  payslipId: string;
+  runId: string;
+  employeeId: string;
+  email: string;
+  period: string;
+  baseSalary: number;
+  unpaidLeaveDays: number;
+  gross: number;
+  pensionDeduction: number;
+  leaveDeduction: number;
+  net: number;
+  createdAt: string;
+  /** Solo en GET /payroll-runs/{runId}/payslips (JOIN con payroll_employees). */
+  fullName?: string | null;
+}
+
+export interface PayslipDocumentUrlResponse {
+  /** URL prefirmada de S3, válida 5 minutos. Se abre sin Authorization. */
+  downloadUrl: string;
+}
+
+// ── Registro de empresas (identity, POST /signup) ──────────────────────────
+export interface SignupRequest {
+  companyName: string;
+  email: string;
+  password: string;
+}
+
+export interface SignupResponse {
+  tenantId: string;
+  token: string;
+  user: User;
+  tokenType?: 'Bearer';
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+/**
+ * Contrato del Issue #15. services/notifications todavía no tiene handlers en main, así que los
+ * campos opcionales se leen de forma tolerante (ver api/notifications.ts).
+ */
+export interface AppNotification {
+  notificationId: string;
+  title: string;
+  message?: string;
+  type?: string;
+  link?: string | null;
+  read: boolean;
+  createdAt: string;
+  readAt?: string | null;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}

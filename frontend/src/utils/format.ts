@@ -57,11 +57,55 @@ export function formatMinutes(minutes: number | null | undefined): string {
   return `${h} h ${String(m).padStart(2, '0')} min`;
 }
 
-export function formatMoney(value: number | string | null | undefined): string {
+/**
+ * Soles con exactamente 2 decimales y separador de miles: 1234.5 → "S/ 1,234.50".
+ * Se arma a mano (sin Intl) para que el resultado no dependa de la versión de ICU del navegador.
+ */
+export function formatSoles(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   const amount = typeof value === 'string' ? Number(value) : value;
-  if (Number.isNaN(amount)) return String(value);
-  return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(amount);
+  if (!Number.isFinite(amount)) return String(value);
+  // Desplazamiento decimal en texto: evita que 1.005 * 100 = 100.4999… redondee hacia abajo.
+  const abs = Math.abs(amount);
+  const text = String(abs);
+  const cents = text.includes('e') ? Math.round(abs * 100) : Math.round(Number(`${text}e2`));
+  const integer = Math.floor(cents / 100)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const decimals = String(cents % 100).padStart(2, '0');
+  return `${amount < 0 && cents > 0 ? '-' : ''}S/ ${integer}.${decimals}`;
+}
+
+export function formatMoney(value: number | string | null | undefined): string {
+  return formatSoles(value);
+}
+
+// ── Periodos de planilla (YYYY-MM) ──────────────────────────────────────────
+export const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** Mes actual (YYYY-MM) en hora de Lima, igual que payroll/src/schemas.py (LIMA_TIME). */
+export function currentPeriod(now: Date = new Date()): string {
+  return todayISO(now).slice(0, 7);
+}
+
+export function isFuturePeriod(period: string, now: Date = new Date()): boolean {
+  return period > currentPeriod(now);
+}
+
+/** Valida el periodo elegido en el selector. Devuelve el mensaje de error o undefined. */
+export function validatePeriod(period: string, now: Date = new Date()): string | undefined {
+  if (!period) return 'Elige el mes de la planilla.';
+  if (!PERIOD.test(period)) return 'El periodo debe tener formato YYYY-MM.';
+  if (isFuturePeriod(period, now)) return 'No puedes generar la planilla de un mes futuro.';
+  return undefined;
+}
+
+/** "2026-03" → "Marzo 2026". */
+export function formatPeriod(period: string | null | undefined): string {
+  if (!period || !PERIOD.test(period)) return period ?? '—';
+  const [y, m] = period.split('-').map(Number);
+  const month = new Intl.DateTimeFormat(LOCALE, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
+  return `${capitalize(month)} ${y}`;
 }
 
 export function initials(name: string | null | undefined): string {
