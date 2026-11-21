@@ -137,6 +137,97 @@ def test_failed_run_reuses_saved_payslip(payroll_tenants, aws, monkeypatch):
         assert conn.run("SELECT status, processed, total_net FROM payroll_runs") == [["COMPLETED", 1, Decimal("2610.00")]]
 
 
+def seed_employees(tenant, count):
+    with db_pg.with_tenant(tenant) as conn:
+        conn.run("""
+            INSERT INTO payroll_employees (employee_id, email, full_name, base_salary, hire_date)
+            SELECT gen_random_uuid(), 'employee' || n || '@example.com', 'Empleado ' || n,
+                   3000, DATE '2025-01-01'
+            FROM generate_series(1, CAST(:employee_count AS INTEGER)) n
+            """, employee_count=count)
+
+
+def test_run_of_1200_uses_three_batches_and_closes_with_correct_totals(payroll_tenants, aws, monkeypatch):
+    tenant, _ = payroll_tenants
+    receive, s3, bucket = aws
+    seed_employees(tenant, 1200)
+
+    client = events._sns_client()
+    publish_batch = client.publish_batch
+    sns_batch_sizes = []
+    published_ids = set()
+
+    def observe_sns_batch(**kwargs):
+        entries = kwargs["PublishBatchRequestEntries"]
+        sns_batch_sizes.append(len(entries))
+        published_ids.update(json.loads(entry["Message"])["data"]["payslipId"] for entry in entries)
+        return publish_batch(**kwargs)
+
+    monkeypatch.setattr(client, "publish_batch", observe_sns_batch)
+    response = payroll_runs.create_run(api_event(tenant), None)
+    assert response["statusCode"] == 202
+    run_id = json.loads(response["body"])["runId"]
+    for expected_offset, expected_processed, status in (
+        (0, 500, "PROCESSING"), (500, 1000, "PROCESSING"), (1000, 1200, "COMPLETED"),
+    ):
+        records = receive("PayrollRunRequested")
+        [record] = records
+        assert json.loads(record["body"])["data"] == {"runId": run_id, "period": PERIOD, "offset": expected_offset}
+        assert on_payroll_run_requested.handler({"Records": records}, None) == {"batchItemFailures": []}
+        with db_pg.with_tenant(tenant) as conn:
+            assert conn.run("SELECT processed, status FROM payroll_runs") == [[expected_processed, status]]
+
+    assert not receive("PayrollRunRequested")
+    with db_pg.with_tenant(tenant) as conn:
+        assert conn.run("SELECT batch_offset, count(*) FROM payslips GROUP BY batch_offset ORDER BY batch_offset") == [
+            [0, 500], [500, 500], [1000, 200],
+        ]
+        assert conn.run("SELECT total_gross, total_net, completed_at IS NOT NULL FROM payroll_runs") == [
+            [Decimal("3600000.00"), Decimal("3132000.00"), True],
+        ]
+    assert sns_batch_sizes == [10] * 120
+    assert len(published_ids) == 1200
+    pages = s3.get_paginator("list_objects_v2").paginate(Bucket=bucket)
+    assert sum(page["KeyCount"] for page in pages) == 1200
+
+
+def test_retry_after_failed_continuation_resumes_at_checkpoint(payroll_tenants, aws, monkeypatch):
+    tenant, _ = payroll_tenants
+    receive, s3, bucket = aws
+    monkeypatch.setattr(on_payroll_run_requested, "BATCH_SIZE", 2)
+    seed_employees(tenant, 3)
+    response = payroll_runs.create_run(api_event(tenant), None)
+    run_id = json.loads(response["body"])["runId"]
+    first = receive("PayrollRunRequested")
+
+    def fail_continuation(event_type, tenant_id, payload):
+        assert event_type == "PayrollRunRequested" and payload["offset"] == 2
+        raise RuntimeError("No se pudo programar el siguiente lote")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(events, "publish", fail_continuation)
+        assert on_payroll_run_requested.handler({"Records": first}, None) == {
+            "batchItemFailures": [{"itemIdentifier": first[0]["messageId"]}],
+        }
+
+    with db_pg.with_tenant(tenant) as conn:
+        assert conn.run("SELECT status, processed, next_offset FROM payroll_runs") == [["FAILED", 2, 2]]
+        saved_ids = {row[0] for row in conn.run("SELECT id FROM payslips")}
+    assert len(receive("PayslipGenerated")) == 2
+
+    retry = payroll_runs.create_run(api_event(tenant), None)
+    assert retry["statusCode"] == 202 and json.loads(retry["body"])["runId"] == run_id
+    second = receive("PayrollRunRequested")
+    assert json.loads(second[0]["body"])["data"]["offset"] == 2
+    for records in (first, second, second):
+        assert on_payroll_run_requested.handler({"Records": records}, None) == {"batchItemFailures": []}
+    with db_pg.with_tenant(tenant) as conn:
+        assert conn.run("SELECT status, processed, total_net FROM payroll_runs") == [["COMPLETED", 3, Decimal("7830.00")]]
+        assert saved_ids < {row[0] for row in conn.run("SELECT id FROM payslips")}
+    assert len(receive("PayslipGenerated")) == 1
+    assert s3.list_objects_v2(Bucket=bucket)["KeyCount"] == 3
+
+
 @pytest.mark.parametrize(("period", "role", "expected"), [
     ("2026-3", "ADMIN_RRHH", 400), ("9999-01", "ADMIN_RRHH", 400),
     ("0000-01", "ADMIN_RRHH", 400), (PERIOD, "EMPLOYEE", 403),

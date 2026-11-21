@@ -73,16 +73,18 @@ def request_run(conn, period, created_by):
         VALUES (:period, :created_by)
         ON CONFLICT (period) DO UPDATE SET status = 'PENDING', completed_at = NULL
         WHERE payroll_runs.status = 'FAILED'
-        RETURNING id, status
+        RETURNING id, status, next_offset
         """, period=period, created_by=created_by)
     if rows:
         return rows[0], True
-    existing = query(conn, "SELECT id, status FROM payroll_runs WHERE period = :period", period=period)
+    existing = query(conn, "SELECT id, status, next_offset FROM payroll_runs WHERE period = :period", period=period)
     return existing[0], False
 
 
 def lock_run(conn, run_id):
-    rows = query(conn, "SELECT period, status FROM payroll_runs WHERE id = :run_id FOR UPDATE", run_id=run_id)
+    rows = query(conn, """
+        SELECT period, status, processed, next_offset FROM payroll_runs WHERE id = :run_id FOR UPDATE
+        """, run_id=run_id)
     return rows[0] if rows else None
 
 
@@ -95,6 +97,31 @@ def fail_run(conn, run_id, *, status):
         UPDATE payroll_runs SET status = 'FAILED'
         WHERE id = :run_id AND status = :status
         """, run_id=run_id, status=status)
+
+
+def fail_batch(conn, run_id, offset):
+    conn.run("""
+        UPDATE payroll_runs SET status = 'FAILED'
+        WHERE id = :run_id AND next_offset = :offset AND status IN ('PENDING', 'PROCESSING')
+        """, run_id=run_id, offset=offset)
+
+
+def save_progress(conn, run_id, offset):
+    conn.run("""
+        UPDATE payroll_runs SET processed = CAST(:offset AS INTEGER) + (
+            SELECT CAST(count(*) AS INTEGER) FROM payslips WHERE run_id = :run_id AND batch_offset = :offset
+        ) WHERE id = :run_id
+        """, run_id=run_id, offset=offset)
+
+
+def advance_batch(conn, run_id):
+    conn.run("UPDATE payroll_runs SET next_offset = processed WHERE id = :run_id", run_id=run_id)
+
+
+def batch_payslip_count(conn, run_id, offset):
+    return conn.run("""
+        SELECT count(*) FROM payslips WHERE run_id = :run_id AND batch_offset = :offset
+        """, run_id=run_id, offset=offset)[0][0]
 
 
 def employees_without_payslip(conn, run_id, month_start, month_end, limit):
@@ -119,32 +146,33 @@ def personal_leaves_for_month(conn, emails, month_start, month_end):
         """, emails=emails, month_start=month_start, month_end=month_end)
 
 
-def insert_payslip(conn, *, payslip_id, run_id, employee, period, amounts, document_key):
+def insert_payslip(conn, *, payslip_id, run_id, batch_offset, employee, period, amounts, document_key):
     conn.run("""
         INSERT INTO payslips (
             id, run_id, employee_id, email, period, base_salary, unpaid_leave_days,
-            gross, pension_deduction, leave_deduction, net, document_key
+            gross, pension_deduction, leave_deduction, net, document_key, batch_offset
         ) VALUES (
             :id, :run_id, :employee_id, :email, :period, :base_salary, :unpaid_leave_days,
-            :gross, :pension_deduction, :leave_deduction, :net, :document_key
+            :gross, :pension_deduction, :leave_deduction, :net, :document_key, :batch_offset
         ) ON CONFLICT (run_id, employee_id) DO NOTHING
         """, id=payslip_id, run_id=run_id, employee_id=employee["employee_id"],
         email=employee["email"], period=period, base_salary=employee["base_salary"],
         unpaid_leave_days=amounts.unpaid_leave_days, gross=amounts.gross,
         pension_deduction=amounts.pension_deduction, leave_deduction=amounts.leave_deduction,
-        net=amounts.net, document_key=document_key)
+        net=amounts.net, document_key=document_key, batch_offset=batch_offset)
 
 
-def payslips_for_notifications(conn, run_id):
+def payslips_for_notifications(conn, run_id, offset):
     return query(conn, """
-        SELECT id, email, period, net FROM payslips WHERE run_id = :run_id ORDER BY employee_id
-        """, run_id=run_id)
+        SELECT id, email, period, net FROM payslips
+        WHERE run_id = :run_id AND batch_offset = :offset ORDER BY employee_id
+        """, run_id=run_id, offset=offset)
 
 
 def complete_run(conn, run_id):
     conn.run("""
         UPDATE payroll_runs SET
-            status = 'COMPLETED', processed = totals.processed, total_gross = totals.gross,
+            status = 'COMPLETED', processed = totals.processed, next_offset = totals.processed, total_gross = totals.gross,
             total_net = totals.net, completed_at = now()
         FROM (
             SELECT count(*) AS processed, COALESCE(sum(gross), 0) AS gross,

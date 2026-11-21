@@ -13,12 +13,11 @@ from src.schemas import parse_period
 BATCH_SIZE = 500
 
 
-def _save_payslips(conn, tenant_id, run_id, period):
-    month_start = parse_period(period)
-    month_end = month_start.replace(day=monthrange(month_start.year, month_start.month)[1])
-    employees = repo.employees_without_payslip(conn, run_id, month_start, month_end, BATCH_SIZE + 1)
-    if len(employees) > BATCH_SIZE:
-        raise ValueError("Esta versión de Payroll admite hasta 500 empleados por corrida")
+def _save_payslips(conn, tenant_id, run_id, period, offset, month_start, month_end):
+    # Old runs can already have saved slips at offset zero when migrated.
+    saved = repo.batch_payslip_count(conn, run_id, offset)
+    remaining_capacity = max(0, BATCH_SIZE - saved)
+    employees = repo.employees_without_payslip(conn, run_id, month_start, month_end, remaining_capacity)
     if not employees:
         return
 
@@ -36,38 +35,77 @@ def _save_payslips(conn, tenant_id, run_id, period):
         key = storage.tenant_key(tenant_id, "payslips", period, f"{payslip_id}.pdf")
         document = render_payslip(tenant_id, employee["full_name"], period, amounts)
         storage.put_bytes(tenant_id, key, document, "application/pdf")
-        repo.insert_payslip(conn, payslip_id=payslip_id, run_id=run_id, employee=employee,
+        repo.insert_payslip(conn, payslip_id=payslip_id, run_id=run_id, batch_offset=offset, employee=employee,
                             period=period, amounts=amounts, document_key=key)
 
 
-def _process_run(tenant_id, run_id, period):
+def _active_run(conn, run_id, period):
+    run = repo.lock_run(conn, run_id)
+    if run and run["period"] == period and run["status"] in ("PENDING", "PROCESSING"):
+        return run
+    return None
+
+
+def _persist_batch(tenant_id, run_id, period, offset, month_start, month_end):
     with db_pg.with_tenant(tenant_id) as conn:
-        run = repo.lock_run(conn, run_id)
-        if run is None or run["period"] != period or run["status"] not in ("PENDING", "PROCESSING"):
-            return
-        repo.start_run(conn, run_id)
+        run = _active_run(conn, run_id, period)
+        if not run:
+            return False
+        if offset < run["next_offset"]:
+            return True
+        if offset > run["next_offset"]:
+            raise ValueError("El lote anterior aún no ha terminado")
+        if run["status"] == "PENDING":
+            repo.start_run(conn, run_id)
+        if run["processed"] == offset:
+            _save_payslips(conn, tenant_id, run_id, period, offset, month_start, month_end)
+            repo.save_progress(conn, run_id, offset)
+        return True
 
+
+def _finish_batch(tenant_id, run_id, period, offset, month_start, month_end):
+    with db_pg.with_tenant(tenant_id) as conn:
+        run = _active_run(conn, run_id, period)
+        if not run or run["status"] != "PROCESSING":
+            return None
+        if offset < run["next_offset"]:
+            # If the worker stopped after committing the checkpoint, replay
+            # the continuation without publishing the previous slips again.
+            return run["next_offset"]
+        if offset > run["next_offset"]:
+            raise ValueError("El lote anterior aún no ha terminado")
+
+        has_more = repo.employees_without_payslip(conn, run_id, month_start, month_end, 1)
+        payslips = repo.payslips_for_notifications(conn, run_id, offset)
+        events.publish_batch("PayslipGenerated", tenant_id, [
+            {"runId": str(run_id), "payslipId": str(payslip["id"]), "email": payslip["email"],
+             "period": payslip["period"], "net": payslip["net"]}
+            for payslip in payslips
+        ])
+        if has_more:
+            repo.advance_batch(conn, run_id)
+            return run["processed"]
+
+        repo.complete_run(conn, run_id)
+        return None
+
+
+def _process_run(tenant_id, run_id, period, offset):
+    month_start = parse_period(period)
+    month_end = month_start.replace(day=monthrange(month_start.year, month_start.month)[1])
+    failure_offset = offset
     try:
-        with db_pg.with_tenant(tenant_id) as conn:
-            if repo.lock_run(conn, run_id)["status"] != "PROCESSING":
-                return
-            _save_payslips(conn, tenant_id, run_id, period)
-
-        # The payslip rows already exist when their events are sent. On a retry,
-        # saved rows and their deterministic document keys are reused.
-        with db_pg.with_tenant(tenant_id) as conn:
-            if repo.lock_run(conn, run_id)["status"] != "PROCESSING":
-                return
-            payslips = repo.payslips_for_notifications(conn, run_id)
-            events.publish_batch("PayslipGenerated", tenant_id, [
-                {"runId": str(run_id), "payslipId": str(payslip["id"]), "email": payslip["email"],
-                 "period": payslip["period"], "net": payslip["net"]}
-                for payslip in payslips
-            ])
-            repo.complete_run(conn, run_id)
+        if not _persist_batch(tenant_id, run_id, period, offset, month_start, month_end):
+            return
+        next_offset = _finish_batch(tenant_id, run_id, period, offset, month_start, month_end)
+        if next_offset is not None:
+            failure_offset = next_offset
+            events.publish("PayrollRunRequested", tenant_id, {
+                "runId": str(run_id), "period": period, "offset": next_offset,
+            })
     except Exception:
         with db_pg.with_tenant(tenant_id) as conn:
-            repo.fail_run(conn, run_id, status="PROCESSING")
+            repo.fail_batch(conn, run_id, failure_offset)
         raise
 
 
@@ -76,6 +114,7 @@ def handler(message, context):
     if message["eventType"] != "PayrollRunRequested":
         return
     data = message["data"]
-    if data["offset"] != 0:
-        raise ValueError("Esta versión procesa una corrida de un solo lote")
-    _process_run(message["tenantId"], UUID(data["runId"]), data["period"])
+    offset = data["offset"]
+    if type(offset) is not int or offset < 0:
+        raise ValueError("offset debe ser un entero mayor o igual que cero")
+    _process_run(message["tenantId"], UUID(data["runId"]), data["period"], offset)

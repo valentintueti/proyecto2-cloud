@@ -20,7 +20,9 @@ def create_run(event, context):
     run_id = str(run["id"])
     if should_publish:
         try:
-            events.publish("PayrollRunRequested", tenant_id, {"runId": run_id, "period": period, "offset": 0})
+            events.publish("PayrollRunRequested", tenant_id, {
+                "runId": run_id, "period": period, "offset": run["next_offset"],
+            })
         except Exception:
             with db_pg.with_tenant(tenant_id) as conn:
                 repo.fail_run(conn, run["id"], status="PENDING")
