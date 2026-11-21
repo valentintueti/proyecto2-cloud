@@ -1,9 +1,9 @@
-"""Postulaciones de una vacante: registro, CV en S3 y cambio de etapa."""
+"""Postulaciones de una vacante: registro, CV en S3, cambio de etapa y borrado."""
 from common import storage
 from common.db_dynamo import TenantTable
 from common.events import publish
 from common.http import (
-    ConflictError, created, get_limit, handle_errors, not_found, ok, parse_body,
+    ConflictError, created, get_limit, handle_errors, no_content, not_found, ok, parse_body,
     path_param, query_param, require_fields,
 )
 from common.tenant import require_role
@@ -110,3 +110,22 @@ def change_stage(event, context):
     hired, job = repo.hire(tenant_id, application, job, notes)
     publish("CandidateHired", tenant_id, repo.candidate_hired_data(hired, job, details))
     return ok(repo.public(hired))
+
+
+@handle_errors
+def delete_application(event, context):
+    ctx = require_role(event, "ADMIN_RRHH")
+    tenant_id = ctx["tenantId"]
+    table = TenantTable(tenant_id)
+    application = _load_application(table, event)
+    if application is None:
+        return not_found("Postulación no encontrada")
+    if application.get("stage") == "HIRED":
+        raise ConflictError("No se puede eliminar una postulación contratada")
+
+    sk = repo.application_sk(application["jobId"], application["applicationId"])
+    if not table.delete(sk):
+        return not_found("Postulación no encontrada")
+    if application.get("cvKey"):
+        storage.delete_object(tenant_id, application["cvKey"])
+    return no_content()

@@ -1,0 +1,211 @@
+service: hcm-payroll
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  frontendOrigin: ${env:FRONTEND_ORIGIN, '*'}
+  pythonRequirements:
+    dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}
+    slim: false
+    noDeploy: [boto3, botocore]
+  authorizer: &authorizer
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 15
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: payroll
+    EVENTS_TOPIC_ARN: ${self:custom.eventsTopicArn}
+    JWT_SECRET: ${env:JWT_SECRET}
+    DB_HOST: ${cf:${self:custom.infraStack}.DbHost}
+    DB_PORT: ${cf:${self:custom.infraStack}.DbPort}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_PAYROLL_NAME, 'hcm_payroll'}
+    BUCKET_NAME: { Ref: PayslipBucket }
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler
+  createRun:
+    handler: src/handlers/payroll_runs.create_run
+    events:
+      - http: { path: payroll-runs, method: post, cors: true, authorizer: *authorizer }
+  listRuns:
+    handler: src/handlers/payroll_runs.list_runs
+    events:
+      - http: { path: payroll-runs, method: get, cors: true, authorizer: *authorizer }
+  getRun:
+    handler: src/handlers/payroll_runs.get_run
+    events:
+      - http: { path: 'payroll-runs/{runId}', method: get, cors: true, authorizer: *authorizer }
+  listRunPayslips:
+    handler: src/handlers/payslips.list_run_payslips
+    events:
+      - http: { path: 'payroll-runs/{runId}/payslips', method: get, cors: true, authorizer: *authorizer }
+  myPayslips:
+    handler: src/handlers/payslips.my_payslips
+    events:
+      - http: { path: payslips/me, method: get, cors: true, authorizer: *authorizer }
+  documentUrl:
+    handler: src/handlers/payslips.document_url
+    events:
+      - http: { path: 'payslips/{payslipId}/document-url', method: get, cors: true, authorizer: *authorizer }
+
+  onTenantCreated:
+    handler: src/handlers/on_tenant_created.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [TenantQueue, Arn] }
+          batchSize: 5
+          functionResponseType: ReportBatchItemFailures
+  onEmployeeEvent:
+    handler: src/handlers/on_employee_event.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [EmployeeQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+  onLeaveApproved:
+    handler: src/handlers/on_leave_approved.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [LeaveQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+  onPayrollRunRequested:
+    handler: src/handlers/on_payroll_run_requested.handler
+    timeout: 180
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [RunQueue, Arn] }
+          batchSize: 1
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    PayslipBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: [GET]
+              AllowedOrigins: ['${self:custom.frontendOrigin}']
+              AllowedHeaders: ['*']
+
+    PayrollDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        MessageRetentionPeriod: 1209600
+    TenantQueue:
+      Type: AWS::SQS::Queue
+      Properties: &consumerQueue
+        VisibilityTimeout: 180
+        RedrivePolicy: &redrivePolicy
+          deadLetterTargetArn: { Fn::GetAtt: [PayrollDLQ, Arn] }
+          maxReceiveCount: 3
+    EmployeeQueue:
+      Type: AWS::SQS::Queue
+      Properties: *consumerQueue
+    LeaveQueue:
+      Type: AWS::SQS::Queue
+      Properties: *consumerQueue
+    RunQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        VisibilityTimeout: 1080
+        RedrivePolicy: *redrivePolicy
+
+    PayrollQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues: [{ Ref: TenantQueue }, { Ref: EmployeeQueue }, { Ref: LeaveQueue }, { Ref: RunQueue }]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: sns.amazonaws.com }
+              Action: sqs:SendMessage
+              Resource:
+                - { Fn::GetAtt: [TenantQueue, Arn] }
+                - { Fn::GetAtt: [EmployeeQueue, Arn] }
+                - { Fn::GetAtt: [LeaveQueue, Arn] }
+                - { Fn::GetAtt: [RunQueue, Arn] }
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.eventsTopicArn}
+
+    TenantSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: PayrollQueuePolicy
+      Properties: &baseSubscription
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [TenantQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy: { eventType: [TenantCreated] }
+    EmployeeSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: PayrollQueuePolicy
+      Properties:
+        <<: *baseSubscription
+        Endpoint: { Fn::GetAtt: [EmployeeQueue, Arn] }
+        FilterPolicy: { eventType: [EmployeeCreated, EmployeeUpdated, EmployeeTerminated] }
+    LeaveSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: PayrollQueuePolicy
+      Properties:
+        <<: *baseSubscription
+        Endpoint: { Fn::GetAtt: [LeaveQueue, Arn] }
+        FilterPolicy: { eventType: [LeaveApproved] }
+    RunSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: PayrollQueuePolicy
+      Properties:
+        <<: *baseSubscription
+        Endpoint: { Fn::GetAtt: [RunQueue, Arn] }
+        FilterPolicy: { eventType: [PayrollRunRequested] }
+
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"

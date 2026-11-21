@@ -48,12 +48,37 @@ def publish(event_type: str, tenant_id: str, data: dict | None = None, topic_arn
     _sns_client().publish(
         TopicArn=arn,
         Message=json.dumps(event, default=_json_default, ensure_ascii=False),
-        MessageAttributes={
-            "eventType": {"DataType": "String", "StringValue": event_type},
-            "tenantId": {"DataType": "String", "StringValue": tenant_id},
-        },
+        MessageAttributes=_message_attributes(event_type, tenant_id),
     )
     return event
+
+
+def _message_attributes(event_type, tenant_id):
+    return {
+        "eventType": {"DataType": "String", "StringValue": event_type},
+        "tenantId": {"DataType": "String", "StringValue": tenant_id},
+    }
+
+
+def publish_batch(event_type: str, tenant_id: str, payloads: list[dict], topic_arn: str | None = None):
+    if not payloads:
+        return
+    arn = topic_arn or os.environ.get("EVENTS_TOPIC_ARN")
+    if not arn:
+        raise RuntimeError("Falta la variable de entorno EVENTS_TOPIC_ARN")
+
+    for start in range(0, len(payloads), 10):
+        entries = []
+        for data in payloads[start:start + 10]:
+            event = build_event(event_type, tenant_id, data)
+            entries.append({
+                "Id": event["eventId"],
+                "Message": json.dumps(event, default=_json_default, ensure_ascii=False),
+                "MessageAttributes": _message_attributes(event_type, tenant_id),
+            })
+        result = _sns_client().publish_batch(TopicArn=arn, PublishBatchRequestEntries=entries)
+        if result.get("Failed"):
+            raise RuntimeError("SNS no pudo publicar todos los eventos del lote")
 
 
 def parse_record(record: dict) -> dict:

@@ -181,6 +181,11 @@ def new_application(job_id: str, body: dict) -> dict:
     }
 
 
+def has_applications(table: TenantTable, job_id: str) -> bool:
+    items, _ = table.query(applications_prefix(job_id), limit=1)
+    return bool(items)
+
+
 def email_already_applied(table: TenantTable, job_id: str, email: str) -> bool:
     cursor = None
     while True:

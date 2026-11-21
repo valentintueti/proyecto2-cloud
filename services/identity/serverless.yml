@@ -79,6 +79,11 @@ functions:
     events:
       - http: { path: 'users/{email}', method: patch, cors: true, authorizer: *authorizer }
 
+  deleteUser:
+    handler: src/handlers/users.delete_user
+    events:
+      - http: { path: 'users/{email}', method: delete, cors: true, authorizer: *authorizer }
+
   onEmployeeEvent:
     handler: src/handlers/on_employee_event.handler
     timeout: 30
