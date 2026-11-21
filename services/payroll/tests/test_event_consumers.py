@@ -1,13 +1,9 @@
 import json
-import os
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
-import pytest
-
 from common import db_pg
-from common.tenant import schema_name
 from src.handlers import on_employee_event, on_leave_approved, on_tenant_created
 
 
@@ -27,25 +23,6 @@ def test_tenant_created_uses_payroll_migration(monkeypatch):
     assert tenant == "acme"
     for table in ("payroll_employees", "leave_records", "payroll_runs", "payslips"):
         assert f"CREATE TABLE IF NOT EXISTS {table}" in sql
-
-
-@pytest.fixture
-def payroll_tenants():
-    if os.environ.get("PAYROLL_TEST_PG") != "1":
-        pytest.skip("Configura PAYROLL_TEST_PG=1 y DB_* para usar PostgreSQL de pruebas")
-
-    prefix = f"paytest_{uuid4().hex[:8]}"
-    tenants = [f"{prefix}_a", f"{prefix}_b"]
-    created_tenants = []
-    try:
-        for tenant in tenants:
-            assert on_tenant_created.handler(message("TenantCreated", tenant), None) == {"batchItemFailures": []}
-            created_tenants.append(tenant)
-        yield tenants
-    finally:
-        for tenant in created_tenants:
-            with db_pg.with_tenant(tenant) as conn:
-                conn.run(f'DROP SCHEMA "{schema_name(tenant)}" CASCADE')
 
 
 def test_employee_events_preserve_latest_profile_and_termination(payroll_tenants):
