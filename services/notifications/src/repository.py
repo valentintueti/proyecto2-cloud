@@ -6,11 +6,13 @@ import uuid
 from datetime import datetime, timezone
 
 from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 
 from common.db_dynamo import TenantTable, get_table
 from common.tenant import tenant_pk
 
 NOTIF_PREFIX = "NOTIF#"
+DEDUPE_PREFIX = "DEDUPE#"
 TYPES = ("WELCOME", "NEW_TEAM_MEMBER", "LEAVE_APPROVED", "PAYSLIP_READY")
 HIDDEN_FIELDS = {"PK", "SK"}
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
@@ -72,9 +74,13 @@ def user_prefix(email: str) -> str:
     return f"{NOTIF_PREFIX}{email}#"
 
 
-def notification_id(source_event_id: str, notif_type: str, email: str) -> str:
-    """Determinístico: el mismo evento siempre produce el mismo id (idempotencia)."""
-    return str(uuid.uuid5(_ID_NAMESPACE, f"{source_event_id}|{notif_type}|{email}"))
+def notification_id(key: str, notif_type: str, email: str) -> str:
+    """Determinístico: la misma clave (de negocio o eventId) siempre produce el mismo id."""
+    return str(uuid.uuid5(_ID_NAMESPACE, f"{key}|{notif_type}|{email}"))
+
+
+def dedupe_sk(notif_id: str) -> str:
+    return f"{DEDUPE_PREFIX}{notif_id}"
 
 
 def notification_sk(email: str, created_at: str, notif_id: str) -> str:
@@ -89,7 +95,8 @@ def new_notification(draft: dict, source_event_id: str, occurred_at) -> tuple:
         raise ValueError("Falta el eventId del evento")
     email = normalize_email(draft["email"])
     created_at = to_utc_z(occurred_at)
-    notif_id = notification_id(source_event_id, draft["type"], email)
+    # Clave de negocio (employeeId, requestId, payslipId) si existe; si no, el eventId.
+    notif_id = notification_id(draft.get("dedupeKey") or source_event_id, draft["type"], email)
     item = {
         "notificationId": notif_id,
         "email": email,
@@ -102,6 +109,29 @@ def new_notification(draft: dict, source_event_id: str, occurred_at) -> tuple:
         "createdAt": created_at,
     }
     return notification_sk(email, created_at, notif_id), item
+
+
+def save_once(tenant_id: str, sk: str, item: dict) -> bool:
+    """Guarda la notificación solo si su registro DEDUPE# no existe. Devuelve False si es repetida.
+
+    La SK de la notificación lleva la fecha del evento (para ordenar la bandeja), así que dos
+    publicaciones del mismo hecho tendrían SK distinta. El registro DEDUPE#<id> se escribe en la
+    misma transacción y es el que evita el duplicado."""
+    table = TenantTable(tenant_id)
+    record = {**item, "PK": table.pk, "SK": sk, "tenantId": tenant_id}
+    marker = {"PK": table.pk, "SK": dedupe_sk(item["notificationId"]), "tenantId": tenant_id,
+              "notificationSk": sk}
+    try:
+        table.table.meta.client.transact_write_items(TransactItems=[
+            {"Put": {"TableName": table.table.name, "Item": marker,
+                     "ConditionExpression": "attribute_not_exists(PK)"}},
+            {"Put": {"TableName": table.table.name, "Item": record}},
+        ])
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "TransactionCanceledException":
+            return False
+        raise
+    return True
 
 
 # --- Consultas --------------------------------------------------------------

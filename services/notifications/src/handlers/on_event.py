@@ -3,9 +3,7 @@ import os
 
 import boto3
 
-from common.db_dynamo import TenantTable
 from common.events import sqs_batch
-from common.http import ConflictError
 from src import messages
 from src import repository as repo
 
@@ -55,12 +53,9 @@ def handler(message, context):
     if not drafts:
         logger.info("Evento ignorado: %s", message["eventType"])
         return
-    table = TenantTable(message["tenantId"])
     for draft in drafts:
         sk, item = repo.new_notification(draft, message.get("eventId"), message.get("occurredAt"))
-        try:
-            table.put(sk, item, if_not_exists=True)
-        except ConflictError:
-            logger.info("Notificación %s ya existía (evento reprocesado)", item["notificationId"])
+        if not repo.save_once(message["tenantId"], sk, item):
+            logger.info("Notificación %s ya existía (evento repetido)", item["notificationId"])
             continue
         send_email(item)

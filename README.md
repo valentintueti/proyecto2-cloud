@@ -13,7 +13,8 @@ Proyecto final CS2032 Cloud Computing (Grupo 2). Gestión de capital humano para
 | `recruitment` | DynamoDB + S3 (CVs) | `CandidateHired` | — |
 | `time_leave` | DynamoDB (2 GSI) | `LeaveApproved` | `EmployeeCreated` |
 | `payroll` | RDS (`hcm_payroll`, un schema por tenant) y S3 (boletas PDF) | `PayrollRunRequested`, `PayslipGenerated` | `TenantCreated`, `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated`, `LeaveApproved`, `PayrollRunRequested` |
-| `frontend` | — | — | APIs de los 4 servicios |
+| `notifications` | DynamoDB (bandeja) y SES opcional | — | `EmployeeCreated`, `LeaveApproved`, `PayslipGenerated` |
+| `frontend` | — | — | APIs de los 6 servicios |
 
 - Cada API Gateway valida el JWT con un Lambda Authorizer; el `tenantId` viaja en el token.
 - DynamoDB en modelo pool (`PK = TENANT#<id>`), RDS con un schema por tenant (Patrón 2) y S3 con prefijo `tenants/<id>/`.
@@ -76,7 +77,7 @@ En la VM las variables `AWS_*` de credenciales quedan vacías.
 bash scripts/deploy.sh
 ```
 
-Despliega en orden `infra → employees → identity → recruitment → time_leave → payroll` (la RDS tarda ~10 min
+Despliega en orden `infra → employees → identity → recruitment → time_leave → payroll → notifications` (la RDS tarda ~10 min
 la primera vez) y al final imprime la URL de cada API. Para un solo servicio, usa `bash scripts/deploy.sh payroll`.
 
 ### 4. Bases y tenants
@@ -98,8 +99,9 @@ histórica aparte si se van a usar en una corrida.
 ### 5. Frontend (Amplify)
 
 Conectar el repo en Amplify con `frontend/` como raíz de la app y configurar
-`VITE_IDENTITY_API_URL`, `VITE_EMPLOYEES_API_URL`, `VITE_RECRUITMENT_API_URL` y `VITE_TIMELEAVE_API_URL`
-con las URLs del paso 3. Luego poner la URL de Amplify en `FRONTEND_ORIGIN` y redesplegar recruitment
+`VITE_IDENTITY_API_URL`, `VITE_EMPLOYEES_API_URL`, `VITE_RECRUITMENT_API_URL`, `VITE_TIMELEAVE_API_URL`,
+`VITE_PAYROLL_API_URL` y `VITE_NOTIFICATIONS_API_URL` con las URLs del paso 3. `VITE_SIGNUP_ENABLED` queda en
+`false` hasta que identity tenga `POST /signup`. Luego poner la URL de Amplify en `FRONTEND_ORIGIN` y redesplegar recruitment
 (`bash scripts/deploy.sh recruitment`) para el CORS del bucket de CVs.
 
 ### Al reiniciar el Learner Lab

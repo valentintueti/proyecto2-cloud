@@ -40,6 +40,7 @@ Todas las URLs salen de variables de entorno. No hay URLs ni secretos escritos e
 | `VITE_TIMELEAVE_API_URL` | time & leave (`/attendance`, `/leave-requests`, `/balances`) |
 | `VITE_PAYROLL_API_URL` | payroll (`/payroll-runs`, `/payslips`) |
 | `VITE_NOTIFICATIONS_API_URL` | notifications (`/notifications`). **Opcional** |
+| `VITE_SIGNUP_ENABLED` | `true` muestra "Registrar mi empresa" en el login. **Opcional**, por defecto apagado |
 
 - **Formato:** cada valor es la URL base del API Gateway incluyendo el stage, por ejemplo `https://xxxx.execute-api.us-east-1.amazonaws.com/dev`. El `/` final es opcional.
 - **Si falta una variable:** la pantalla de login lo avisa, y las llamadas a ese servicio muestran un error claro sin hacer la petición.
@@ -288,9 +289,11 @@ implementaron leyendo los handlers y `serverless.yml` de `services/*` en `main`.
    - `POST /signup` y la respuesta `{tenantId, token, user}` se tomaron del issue.
    - Ningún handler de employees o payroll devuelve hoy 503 «La empresa se está configurando»; el reintento está listo para cuando exista.
    - Se desconoce cómo generará el backend el `tenantId`.
+   - Mientras identity no tenga `POST /signup`, el enlace del login y la ruta `/signup` quedan ocultos.
+     Se activan con `VITE_SIGNUP_ENABLED=true`.
 9. **Notificaciones** (PR #16, fusionado durante este issue).
    - El contador responde `{unread}` (no `{count}`) y `read-all` responde `{updated}`. El cliente usa `unread` y, por robustez, también acepta `{count}`.
    - `GET /notifications/me` admite además `?unread=true`.
-   - Las notificaciones `PAYSLIP_READY` traen `link: "/payroll"`, una pantalla solo para ADMIN_RRHH. Como avisan de la boleta propia, el frontend las lleva a `/payslips` (Mis boletas) para todos los roles. Convendría cambiar el link en `messages.py`.
-   - El servicio no tiene `serverless.yml`: las rutas `/notifications/me`, `/notifications/me/unread-count`, `/notifications/{id}/read` y `/notifications/read-all` siguen el Issue #15.
-10. **README raíz.** La sección de Amplify lista solo las 4 variables anteriores; falta agregar `VITE_PAYROLL_API_URL` y `VITE_NOTIFICATIONS_API_URL`. No se modificó porque este issue se limita a `frontend/`.
+   - Las notificaciones `PAYSLIP_READY` traen `link: "/payslips"` (Mis boletas). El frontend mantiene la
+     corrección para las notificaciones antiguas que todavía traen `/payroll`.
+   - Las rutas de `services/notifications/serverless.yml` coinciden con las que usa el cliente.

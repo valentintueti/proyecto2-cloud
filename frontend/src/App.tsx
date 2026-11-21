@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { signupEnabled } from './config/env';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { RequireAuth, RequirePermission } from './auth/guards';
 import { AppLayout } from './components/layout/AppLayout';
@@ -45,7 +46,7 @@ export function App() {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/signup" element={signupEnabled() ? <SignupPage /> : <Navigate to="/login" replace />} />
             <Route element={<RequireAuth />}>
               <Route element={<SessionBoundary />}>
                 <Route index element={<DashboardPage />} />

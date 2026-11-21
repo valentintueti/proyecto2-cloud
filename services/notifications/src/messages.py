@@ -7,9 +7,15 @@ LEAVE_LABELS = {
 }
 
 
+def _key(prefix: str, value) -> str | None:
+    """Clave de negocio para no duplicar: el mismo hecho publicado dos veces trae otro eventId."""
+    return f"{prefix}#{value}" if value else None
+
+
 def _employee_created(data: dict) -> list:
     name = data.get("fullName") or data["email"]
     drafts = [{
+        "dedupeKey": _key("WELCOME", data.get("employeeId")),
         "email": data["email"],
         "type": "WELCOME",
         "title": "¡Bienvenido(a)!",
@@ -19,6 +25,7 @@ def _employee_created(data: dict) -> list:
     manager = data.get("managerEmail")
     if manager and str(manager).strip().lower() != str(data["email"]).strip().lower():
         drafts.append({
+            "dedupeKey": _key("NEW_TEAM_MEMBER", data.get("employeeId")),
             "email": manager,
             "type": "NEW_TEAM_MEMBER",
             "title": "Nuevo integrante en tu equipo",
@@ -31,6 +38,7 @@ def _employee_created(data: dict) -> list:
 def _leave_approved(data: dict) -> list:
     label = LEAVE_LABELS.get(data.get("type"), "permiso")
     return [{
+        "dedupeKey": _key("LEAVE_APPROVED", data.get("requestId")),
         "email": data["email"],
         "type": "LEAVE_APPROVED",
         "title": "Solicitud aprobada",
@@ -49,11 +57,12 @@ def _payslip_generated(data: dict) -> list:
     net = data.get("net")
     amount = f" Neto: S/ {float(net):,.2f}." if net is not None else ""
     return [{
+        "dedupeKey": _key("PAYSLIP_READY", data.get("payslipId")),
         "email": data["email"],
         "type": "PAYSLIP_READY",
         "title": "Boleta de pago disponible",
         "message": f"Tu boleta de pago{detail} ya está disponible.{amount}",
-        "link": "/payroll",
+        "link": "/payslips",
     }]
 
 
@@ -65,7 +74,7 @@ BUILDERS = {
 
 
 def build(event_type: str, data: dict) -> list:
-    """Borradores {email, type, title, message, link} para un evento. [] si no aplica."""
+    """Borradores {dedupeKey, email, type, title, message, link} para un evento. [] si no aplica."""
     builder = BUILDERS.get(event_type)
     if builder is None:
         return []

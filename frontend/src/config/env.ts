@@ -57,3 +57,11 @@ export function missingServices(): ServiceName[] {
 export function notificationsEnabled(): boolean {
   return USE_MOCKS || serviceBaseUrl('notifications') !== null;
 }
+
+/**
+ * Registro público de empresas: solo se muestra con VITE_SIGNUP_ENABLED=true (o en el modo demo),
+ * porque necesita el endpoint POST /signup de identity.
+ */
+export function signupEnabled(): boolean {
+  return USE_MOCKS || import.meta.env.VITE_SIGNUP_ENABLED === 'true';
+}

@@ -3,15 +3,22 @@
     "PK": "TENANT#acme",
     "SK": "NOTIF#empleado@acme.com#2026-11-20T15:04:05Z#<notificationId>",
     "tenantId": "acme",
-    "notificationId": "uuid (determinístico: uuid5 de sourceEventId + type + email)",
+    "notificationId": "uuid (determinístico: uuid5 de la clave de negocio + type + email; employeeId, requestId o payslipId según el tipo, o el eventId si no hay)",
     "email": "empleado@acme.com",
     "type": "WELCOME | NEW_TEAM_MEMBER | LEAVE_APPROVED | PAYSLIP_READY",
     "title": "texto corto",
     "message": "texto",
-    "link": "/leave",
+    "link": "/ | /employees | /leave | /payslips",
     "read": false,
     "readAt": "ISO-8601 (solo cuando read = true)",
     "sourceEventId": "eventId del evento que la generó",
     "createdAt": "2026-11-20T15:04:05Z (occurredAt del evento, en UTC)"
+  },
+  "dedupe": {
+    "PK": "TENANT#acme",
+    "SK": "DEDUPE#<notificationId>",
+    "tenantId": "acme",
+    "notificationSk": "SK de la notificación que se guardó",
+    "_nota": "Se escribe en la misma transacción que la notificación. Si ya existe, el evento es repetido y no se guarda otra notificación."
   }
 }

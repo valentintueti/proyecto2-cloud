@@ -1,0 +1,140 @@
+service: hcm-notifications
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  infraStack: hcm-infra-${sls:stage}
+  eventsTopicArn: ${cf:${self:custom.infraStack}.EventsTopicArn}
+  tableName: ${self:service}-${sls:stage}
+  pythonRequirements:
+    dockerizePip: false
+    pythonBin: ${env:PYTHON_BIN, 'python3'}   # en Windows: PYTHON_BIN=py
+    slim: false   # slim borra *.dist-info y scramp (pg8000) necesita su metadata
+    noDeploy: [boto3, botocore]
+  authorizer: &authorizer
+    name: authorizer
+    type: token
+    identitySource: method.request.header.Authorization
+    resultTtlInSeconds: 300
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, env:STAGE, 'dev'}
+  memorySize: 512
+  timeout: 10
+  iam:
+    role: ${env:LAB_ROLE_ARN}
+  layers:
+    - ${cf:${self:custom.infraStack}.CommonLayerArn}
+  environment:
+    SERVICE_NAME: notifications
+    TABLE_NAME: ${self:custom.tableName}
+    JWT_SECRET: ${env:JWT_SECRET}
+    EMAIL_ENABLED: ${env:NOTIFICATIONS_EMAIL_ENABLED, 'false'}
+    EMAIL_SENDER: ${env:NOTIFICATIONS_EMAIL_SENDER, ''}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!.pytest_cache/**'
+
+functions:
+  authorizer:
+    handler: common.authorizer.handler   # viene del layer
+
+  myNotifications:
+    handler: src/handlers/notifications.my_notifications
+    events:
+      - http: { path: notifications/me, method: get, cors: true, authorizer: *authorizer }
+  unreadCount:
+    handler: src/handlers/notifications.unread_count
+    events:
+      - http: { path: notifications/me/unread-count, method: get, cors: true, authorizer: *authorizer }
+  markRead:
+    handler: src/handlers/notifications.mark_read
+    events:
+      - http: { path: 'notifications/{notificationId}/read', method: patch, cors: true, authorizer: *authorizer }
+  markAllRead:
+    handler: src/handlers/notifications.mark_all_read
+    events:
+      - http: { path: notifications/read-all, method: post, cors: true, authorizer: *authorizer }
+
+  onEvent:
+    handler: src/handlers/on_event.handler
+    timeout: 30
+    events:
+      - sqs:
+          arn: { Fn::GetAtt: [NotificationsQueue, Arn] }
+          batchSize: 10
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    NotificationsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: PK, AttributeType: S }
+          - { AttributeName: SK, AttributeType: S }
+        KeySchema:
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
+
+    NotificationsDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-dlq
+        MessageRetentionPeriod: 1209600
+
+    NotificationsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-events
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: { Fn::GetAtt: [NotificationsDLQ, Arn] }
+          maxReceiveCount: 3
+
+    NotificationsQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues: [{ Ref: NotificationsQueue }]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: sns.amazonaws.com }
+              Action: sqs:SendMessage
+              Resource: { Fn::GetAtt: [NotificationsQueue, Arn] }
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.eventsTopicArn}
+
+    NotificationsSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: NotificationsQueuePolicy
+      Properties:
+        TopicArn: ${self:custom.eventsTopicArn}
+        Protocol: sqs
+        Endpoint: { Fn::GetAtt: [NotificationsQueue, Arn] }
+        RawMessageDelivery: true
+        FilterPolicy:
+          eventType: [EmployeeCreated, LeaveApproved, PayslipGenerated]
+
+    # CORS también en los 401/403 que devuelve el authorizer
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: { Ref: ApiGatewayRestApi }
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"

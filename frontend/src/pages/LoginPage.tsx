@@ -7,7 +7,7 @@ import { BrandMark } from '../components/layout/AppLayout';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Feedback';
 import { Field, Input } from '../components/ui/Form';
-import { SERVICE_ENV, USE_MOCKS, missingServices } from '../config/env';
+import { SERVICE_ENV, USE_MOCKS, missingServices, signupEnabled } from '../config/env';
 import { errorMessage } from '../hooks/useAsync';
 import { TENANT_ID, isEmail, type Errors } from '../utils/validation';
 
@@ -164,9 +164,11 @@ export function LoginPage() {
           <Button type="submit" block loading={submitting}>
             Ingresar
           </Button>
-          <p className="login-foot-link">
-            ¿Tu empresa aún no usa TalentCloud? <Link to="/signup">Registrar mi empresa</Link>
-          </p>
+          {signupEnabled() && (
+            <p className="login-foot-link">
+              ¿Tu empresa aún no usa TalentCloud? <Link to="/signup">Registrar mi empresa</Link>
+            </p>
+          )}
 
           {USE_MOCKS && (
             <div className="demo-hint">

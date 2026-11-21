@@ -123,3 +123,28 @@ def test_con_email_disabled_no_llama_a_ses(sqs_event, monkeypatch):
 
     monkeypatch.setattr(on_event, "_ses_client", fail)
     assert on_event.handler(sqs_event("LeaveApproved", LEAVE), None) == {"batchItemFailures": []}
+
+
+def test_mismo_hecho_publicado_dos_veces_no_duplica(sqs_event):
+    """Un evento vuelto a publicar trae otro eventId y otra fecha: se deduplica por ID de negocio."""
+    for i, event_type, data in [(1, "EmployeeCreated", EMPLOYEE), (2, "EmployeeCreated", EMPLOYEE),
+                                (1, "LeaveApproved", LEAVE), (2, "LeaveApproved", LEAVE),
+                                (1, "PayslipGenerated", PAYSLIP), (2, "PayslipGenerated", PAYSLIP)]:
+        event = sqs_event(event_type, data, occurred_at=f"2026-11-20T15:0{i}:00+00:00")
+        assert on_event.handler(event, None) == {"batchItemFailures": []}
+
+    assert [i["type"] for i in _inbox("nuevo@acme.com")] == ["WELCOME"]
+    assert [i["type"] for i in _inbox("jefe@acme.com")] == ["NEW_TEAM_MEMBER"]
+    assert sorted(i["type"] for i in _inbox("ana@acme.com")) == ["LEAVE_APPROVED", "PAYSLIP_READY"]
+
+
+def test_boleta_lleva_a_mis_boletas(sqs_event):
+    on_event.handler(sqs_event("PayslipGenerated", PAYSLIP), None)
+    [slip] = _inbox("ana@acme.com")
+    assert slip["link"] == "/payslips"
+
+
+def test_otro_payslip_del_mismo_empleado_si_genera_notificacion(sqs_event):
+    on_event.handler(sqs_event("PayslipGenerated", PAYSLIP), None)
+    on_event.handler(sqs_event("PayslipGenerated", {**PAYSLIP, "payslipId": "p-2", "period": "2026-12"}), None)
+    assert len(_inbox("ana@acme.com")) == 2
