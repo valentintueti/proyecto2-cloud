@@ -43,13 +43,16 @@ def _leave_approved(data: dict) -> list:
 
 
 def _payslip_generated(data: dict) -> list:
+    """data: {runId, payslipId, email, period (YYYY-MM), net}."""
     period = data.get("period")
     detail = f" de {period}" if period else ""
+    net = data.get("net")
+    amount = f" Neto: S/ {float(net):,.2f}." if net is not None else ""
     return [{
         "email": data["email"],
         "type": "PAYSLIP_READY",
         "title": "Boleta de pago disponible",
-        "message": f"Tu boleta de pago{detail} ya está disponible.",
+        "message": f"Tu boleta de pago{detail} ya está disponible.{amount}",
         "link": "/payroll",
     }]
 

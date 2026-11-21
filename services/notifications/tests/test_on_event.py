@@ -10,7 +10,7 @@ LEAVE = {
     "requestId": "r-1", "email": "ana@acme.com", "type": "VACATION",
     "startDate": "2026-12-07", "endDate": "2026-12-11", "days": 5, "approvedBy": "jefe@acme.com",
 }
-PAYSLIP = {"payslipId": "p-1", "email": "ana@acme.com", "period": "2026-11"}
+PAYSLIP = {"runId": "run-1", "payslipId": "p-1", "email": "ana@acme.com", "period": "2026-11", "net": 3250.5}
 
 
 def _inbox(email, tenant_id="acme"):
@@ -51,7 +51,9 @@ def test_leave_approved_y_payslip_generated(sqs_event):
     assert set(by_type) == {"LEAVE_APPROVED", "PAYSLIP_READY"}
     assert by_type["LEAVE_APPROVED"]["link"] == "/leave"
     assert "2026-12-07" in by_type["LEAVE_APPROVED"]["message"]
-    assert "2026-11" in by_type["PAYSLIP_READY"]["message"]
+    assert by_type["PAYSLIP_READY"]["message"] == (
+        "Tu boleta de pago de 2026-11 ya está disponible. Neto: S/ 3,250.50."
+    )
 
 
 def test_reprocesar_un_evento_no_duplica(sqs_event):
