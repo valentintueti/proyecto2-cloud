@@ -116,6 +116,17 @@ def apply_migrations(service: str, database: str, tenants: list[str]) -> None:
         print(f"  {database}.{schema_name(tenant)}: migrado")
 
 
+def ensure_company_names(payroll_db: str, tenants: list[str]) -> None:
+    """Nombre de empresa para las boletas de los tenants creados antes de 003_company.sql.
+    Usa el mismo nombre que create_tenant registra en identity y no pisa uno existente."""
+    for tenant in tenants:
+        with db_pg.with_tenant(tenant, db_name=payroll_db) as conn:
+            conn.run("""
+                INSERT INTO company_profile (id, name) VALUES (TRUE, :name)
+                ON CONFLICT (id) DO NOTHING
+                """, name=tenant.title())
+
+
 def sync_payroll_employees(tenant: str, employees_db: str, payroll_db: str) -> int:
     after = None
     reviewed = 0
@@ -198,6 +209,7 @@ def main() -> None:
     os.environ.update({"DB_HOST": host, "DB_PORT": str(port)})
     for service, database in (("employees", employees_db), ("payroll", payroll_db)):
         apply_migrations(service, database, tenants)
+    ensure_company_names(payroll_db, tenants)
 
     print(f"3/4 Tenants en {identity['ServiceEndpoint']}")
     for tenant in tenants:

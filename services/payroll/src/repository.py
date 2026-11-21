@@ -225,3 +225,19 @@ def list_employee_payslips(conn, email, limit, offset):
 def get_payslip_document(conn, payslip_id):
     rows = query(conn, "SELECT email, document_key FROM payslips WHERE id = :id", id=payslip_id)
     return rows[0] if rows else None
+
+
+def save_company_name(conn, name):
+    conn.run("""
+        INSERT INTO company_profile (id, name) VALUES (TRUE, :name)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = now()
+        """, name=name)
+
+
+def company_name(conn):
+    # Los tenants migrados antes de 003_company.sql todavia no tienen la tabla.
+    [[exists]] = conn.run("SELECT to_regclass('company_profile') IS NOT NULL")
+    if not exists:
+        return None
+    rows = conn.run("SELECT name FROM company_profile WHERE id")
+    return rows[0][0] if rows else None

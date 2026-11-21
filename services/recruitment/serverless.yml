@@ -67,6 +67,10 @@ functions:
     handler: src/handlers/jobs.update_job
     events:
       - http: { path: 'jobs/{jobId}', method: patch, cors: true, authorizer: *authorizer }
+  deleteJob:
+    handler: src/handlers/jobs.delete_job
+    events:
+      - http: { path: 'jobs/{jobId}', method: delete, cors: true, authorizer: *authorizer }
 
   # ── Postulaciones ──
   listApplications:
@@ -89,6 +93,10 @@ functions:
     handler: src/handlers/applications.change_stage
     events:
       - http: { path: 'jobs/{jobId}/applications/{applicationId}/stage', method: patch, cors: true, authorizer: *authorizer }
+  deleteApplication:
+    handler: src/handlers/applications.delete_application
+    events:
+      - http: { path: 'jobs/{jobId}/applications/{applicationId}', method: delete, cors: true, authorizer: *authorizer }
 
 resources:
   Resources:

@@ -1,9 +1,10 @@
+import logging
 from calendar import monthrange
 from collections import defaultdict
 from uuid import UUID, uuid5
 
 from common import db_pg, events, storage
-from common.events import sqs_batch
+from common.events import parse_record
 from src import repository as repo
 from src.calculator import ApprovedLeave, calculate_payslip
 from src.payslip_document import render_payslip
@@ -11,6 +12,11 @@ from src.schemas import parse_period
 
 
 BATCH_SIZE = 500
+# Igual que maxReceiveCount de RunQueue en serverless.yml: en el ultimo intento la corrida queda FAILED.
+MAX_RECEIVES = 3
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def _save_payslips(conn, tenant_id, run_id, period, offset, month_start, month_end):
@@ -21,6 +27,7 @@ def _save_payslips(conn, tenant_id, run_id, period, offset, month_start, month_e
     if not employees:
         return
 
+    company = repo.company_name(conn) or tenant_id
     leaves_by_email = defaultdict(list)
     emails = [employee["email"] for employee in employees]
     for leave in repo.personal_leaves_for_month(conn, emails, month_start, month_end):
@@ -33,7 +40,7 @@ def _save_payslips(conn, tenant_id, run_id, period, offset, month_start, month_e
         )
         payslip_id = uuid5(run_id, str(employee["employee_id"]))
         key = storage.tenant_key(tenant_id, "payslips", period, f"{payslip_id}.pdf")
-        document = render_payslip(tenant_id, employee["full_name"], period, amounts)
+        document = render_payslip(company, employee["full_name"], period, amounts)
         storage.put_bytes(tenant_id, key, document, "application/pdf")
         repo.insert_payslip(conn, payslip_id=payslip_id, run_id=run_id, batch_offset=offset, employee=employee,
                             period=period, amounts=amounts, document_key=key)
@@ -90,7 +97,7 @@ def _finish_batch(tenant_id, run_id, period, offset, month_start, month_end):
         return None
 
 
-def _process_run(tenant_id, run_id, period, offset):
+def _process_run(tenant_id, run_id, period, offset, final_attempt=True):
     month_start = parse_period(period)
     month_end = month_start.replace(day=monthrange(month_start.year, month_start.month)[1])
     failure_offset = offset
@@ -104,17 +111,32 @@ def _process_run(tenant_id, run_id, period, offset):
                 "runId": str(run_id), "period": period, "offset": next_offset,
             })
     except Exception:
-        with db_pg.with_tenant(tenant_id) as conn:
-            repo.fail_batch(conn, run_id, failure_offset)
+        # Antes del ultimo intento solo se deja que SQS reintente el mensaje.
+        if final_attempt:
+            with db_pg.with_tenant(tenant_id) as conn:
+                repo.fail_batch(conn, run_id, failure_offset)
         raise
 
 
-@sqs_batch
-def handler(message, context):
-    if message["eventType"] != "PayrollRunRequested":
-        return
-    data = message["data"]
-    offset = data["offset"]
-    if type(offset) is not int or offset < 0:
-        raise ValueError("offset debe ser un entero mayor o igual que cero")
-    _process_run(message["tenantId"], UUID(data["runId"]), data["period"], offset)
+def _receive_count(record):
+    # Sin el atributo (por ejemplo en tests) se trata como el ultimo intento.
+    return int((record.get("attributes") or {}).get("ApproximateReceiveCount", MAX_RECEIVES))
+
+
+def handler(event, context):
+    failures = []
+    for record in event.get("Records", []):
+        try:
+            message = parse_record(record)
+            if message["eventType"] != "PayrollRunRequested":
+                continue
+            data = message["data"]
+            offset = data["offset"]
+            if type(offset) is not int or offset < 0:
+                raise ValueError("offset debe ser un entero mayor o igual que cero")
+            _process_run(message["tenantId"], UUID(data["runId"]), data["period"], offset,
+                         final_attempt=_receive_count(record) >= MAX_RECEIVES)
+        except Exception:
+            logger.exception("Fallo el mensaje %s", record.get("messageId"))
+            failures.append({"itemIdentifier": record["messageId"]})
+    return {"batchItemFailures": failures}

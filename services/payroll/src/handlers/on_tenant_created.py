@@ -3,6 +3,7 @@ from pathlib import Path
 
 from common import db_pg
 from common.events import sqs_batch
+from src import repository as repo
 
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
@@ -18,5 +19,11 @@ def migration_sql():
 
 @sqs_batch
 def handler(message, context):
-    if message["eventType"] == "TenantCreated":
-        db_pg.create_tenant_schema(message["tenantId"], migration_sql())
+    if message["eventType"] != "TenantCreated":
+        return
+    tenant_id = message["tenantId"]
+    db_pg.create_tenant_schema(tenant_id, migration_sql())
+    name = str((message.get("data") or {}).get("name") or "").strip()[:100]
+    if name:
+        with db_pg.with_tenant(tenant_id) as conn:
+            repo.save_company_name(conn, name)
