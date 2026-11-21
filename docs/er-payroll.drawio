@@ -1,0 +1,398 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="payroll-er" name="Payroll">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1176" pageHeight="974" background="#F4F7FB">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Payroll · Modelo entidad–relación" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=34;fontColor=#17283F;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="26" width="1000" height="40" />
+        </mxCell>
+        <mxCell id="subtitle" value="Base hcm_payroll · un esquema por empresa" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=18;fontColor=#465A73;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="72" width="1000" height="26" />
+        </mxCell>
+        <mxCell id="legend" value="PK = clave primaria     FK = clave foránea     UQ = único" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=15;fontColor=#17283F;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="888" width="1000" height="27" />
+        </mxCell>
+        <mxCell id="footer" value="Las boletas conservan el correo y el salario usados en el cálculo." style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="918" width="1000" height="24" />
+        </mxCell>
+        <mxCell id="payroll_runs" value="" style="group;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="120" width="476" height="325" />
+        </mxCell>
+        <mxCell id="payroll_runs-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="325" />
+        </mxCell>
+        <mxCell id="payroll_runs-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
+        </mxCell>
+        <mxCell id="payroll_runs-name" value="payroll_runs" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=20;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="16" y="0" width="444" height="44" />
+        </mxCell>
+        <mxCell id="payroll_runs-id-key" value="PK" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="16" y="44" width="42" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-id-field" value="id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="44" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="44" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-period-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="69" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-period-key" value="UQ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="16" y="69" width="42" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-period-field" value="period" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="69" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-period-type" value="VARCHAR(7)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="69" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-status-field" value="status" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="94" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-status-type" value="VARCHAR(10)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="94" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-processed-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="119" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-processed-field" value="processed" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="119" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-processed-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="119" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-total_gross-field" value="total_gross" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="144" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-total_gross-type" value="NUMERIC(18,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="144" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-total_net-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="169" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-total_net-field" value="total_net" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="169" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-total_net-type" value="NUMERIC(18,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="169" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-created_by-field" value="created_by" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="194" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-created_by-type" value="VARCHAR(254)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="194" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-created_at-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="219" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-created_at-field" value="created_at" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="219" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-created_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="219" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-completed_at-field" value="completed_at" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="244" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-completed_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="244" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-next_offset-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="269" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-next_offset-field" value="next_offset" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="269" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-next_offset-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="269" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-note" value="Único por período dentro del esquema" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="16" y="294" width="444" height="31" />
+        </mxCell>
+        <mxCell id="payslips" value="" style="group;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="660" y="120" width="476" height="425" />
+        </mxCell>
+        <mxCell id="payslips-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="425" />
+        </mxCell>
+        <mxCell id="payslips-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
+        </mxCell>
+        <mxCell id="payslips-name" value="payslips" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=20;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="16" y="0" width="444" height="44" />
+        </mxCell>
+        <mxCell id="payslips-id-key" value="PK" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="16" y="44" width="42" height="25" />
+        </mxCell>
+        <mxCell id="payslips-id-field" value="id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="44" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="44" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-run_id-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="69" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-run_id-key" value="FK" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="16" y="69" width="42" height="25" />
+        </mxCell>
+        <mxCell id="payslips-run_id-field" value="run_id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="69" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-run_id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="69" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-employee_id-field" value="employee_id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="94" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-employee_id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="94" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-email-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="119" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-email-field" value="email" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="119" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-email-type" value="VARCHAR(254)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="119" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-period-field" value="period" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="144" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-period-type" value="VARCHAR(7)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="144" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-base_salary-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="169" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-base_salary-field" value="base_salary" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="169" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-base_salary-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="169" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-unpaid_leave_days-field" value="unpaid_leave_days" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="194" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-unpaid_leave_days-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="194" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-gross-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="219" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-gross-field" value="gross" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="219" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-gross-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="219" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-pension_deduction-field" value="pension_deduction" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="244" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-pension_deduction-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="244" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-leave_deduction-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="269" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-leave_deduction-field" value="leave_deduction" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="269" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-leave_deduction-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="269" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-net-field" value="net" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="294" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-net-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="294" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-document_key-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="319" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-document_key-field" value="document_key" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="319" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-document_key-type" value="TEXT" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="319" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-created_at-field" value="created_at" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="344" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-created_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="344" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-batch_offset-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="369" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-batch_offset-field" value="batch_offset" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="369" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-batch_offset-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="369" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payslips-note" value="Único por (run_id, employee_id)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="16" y="394" width="444" height="31" />
+        </mxCell>
+        <mxCell id="payroll_employees" value="" style="group;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="40" y="575" width="476" height="275" />
+        </mxCell>
+        <mxCell id="payroll_employees-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="275" />
+        </mxCell>
+        <mxCell id="payroll_employees-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
+        </mxCell>
+        <mxCell id="payroll_employees-name" value="payroll_employees" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=20;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="16" y="0" width="444" height="44" />
+        </mxCell>
+        <mxCell id="payroll_employees-employee_id-key" value="PK" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="16" y="44" width="42" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-employee_id-field" value="employee_id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="44" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-employee_id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="44" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-email-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="1" y="69" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-email-field" value="email" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="69" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-email-type" value="VARCHAR(254)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="69" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-full_name-field" value="full_name" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="94" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-full_name-type" value="VARCHAR(161)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="94" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-base_salary-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="1" y="119" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-base_salary-field" value="base_salary" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="119" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-base_salary-type" value="NUMERIC(10,2)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="119" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-hire_date-field" value="hire_date" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="144" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-hire_date-type" value="DATE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="144" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-termination_date-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="1" y="169" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-termination_date-field" value="termination_date" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="169" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-termination_date-type" value="DATE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="169" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-status-field" value="status" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="194" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-status-type" value="VARCHAR(12)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="194" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-updated_at-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="1" y="219" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-updated_at-field" value="updated_at" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="66" y="219" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-updated_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="310" y="219" width="150" height="25" />
+        </mxCell>
+        <mxCell id="payroll_employees-note" value="employee_id proviene del servicio Empleados" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="payroll_employees">
+          <mxGeometry as="geometry" x="16" y="244" width="444" height="31" />
+        </mxCell>
+        <mxCell id="leave_records" value="" style="group;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="660" y="575" width="476" height="225" />
+        </mxCell>
+        <mxCell id="leave_records-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="225" />
+        </mxCell>
+        <mxCell id="leave_records-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
+        </mxCell>
+        <mxCell id="leave_records-name" value="leave_records" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=20;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="16" y="0" width="444" height="44" />
+        </mxCell>
+        <mxCell id="leave_records-request_id-key" value="PK" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#156A70;fontStyle=1;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="16" y="44" width="42" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-request_id-field" value="request_id" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="44" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-request_id-type" value="UUID" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="44" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-email-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="1" y="69" width="474" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-email-field" value="email" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="69" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-email-type" value="VARCHAR(254)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="69" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-type-field" value="type" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="94" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-type-type" value="VARCHAR(8)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="94" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-start_date-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="1" y="119" width="474" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-start_date-field" value="start_date" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="119" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-start_date-type" value="DATE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="119" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-end_date-field" value="end_date" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="144" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-end_date-type" value="DATE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="144" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-days-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="1" y="169" width="474" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-days-field" value="days" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="66" y="169" width="235" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-days-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="310" y="169" width="150" height="25" />
+        </mxCell>
+        <mxCell id="leave_records-note" value="request_id proviene de Tiempo y Ausencias" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="leave_records">
+          <mxGeometry as="geometry" x="16" y="194" width="444" height="31" />
+        </mxCell>
+        <mxCell id="runs-payslips" style="endArrow=none;startArrow=none;strokeWidth=2;strokeColor=#156A70;exitX=1;exitY=0.4676923076923077;entryX=0;entryY=0.35764705882352943;" edge="1" parent="1" source="payroll_runs-border" target="payslips-border">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="one-run" value="1" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="524" y="245" width="20" height="24" />
+        </mxCell>
+        <mxCell id="link-field" value="run_id" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="550" y="245" width="62" height="24" />
+        </mxCell>
+        <mxCell id="many-payslips" value="0..N" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="615" y="245" width="40" height="24" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

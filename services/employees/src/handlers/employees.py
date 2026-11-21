@@ -87,6 +87,9 @@ def update_employee(event, context):
             raise ConflictError("El empleado está dado de baja")
         emp = repo.update_employee(conn, employee_id, changes)
 
+    profile = s.employee_updated_data(emp)
+    if profile != s.employee_updated_data(current):
+        events.publish("EmployeeUpdated", ctx["tenantId"], profile)
     return ok(s.to_api(emp))
 
 

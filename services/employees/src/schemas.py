@@ -201,13 +201,18 @@ def to_api(row: dict) -> dict:
     return {_camel(k): (str(v) if isinstance(v, uuid.UUID) else v) for k, v in row.items()}
 
 
-def employee_created_data(emp: dict, manager_email: str | None = None) -> dict:
-    data = {
+def employee_updated_data(emp: dict) -> dict:
+    return {
         "employeeId": str(emp["id"]),
         "email": emp["email"],
         "fullName": f"{emp['first_name']} {emp['last_name']}",
-        "hireDate": emp["hire_date"].isoformat(),
+        "salary": emp["salary"],
     }
+
+
+def employee_created_data(emp: dict, manager_email: str | None = None) -> dict:
+    data = employee_updated_data(emp)
+    data["hireDate"] = emp["hire_date"].isoformat()
     if emp.get("department_id"):
         data["departmentId"] = str(emp["department_id"])
     if manager_email:
