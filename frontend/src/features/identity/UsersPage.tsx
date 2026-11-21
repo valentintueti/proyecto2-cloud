@@ -1,11 +1,13 @@
-import { KeyRound, Pencil, Plus, ShieldCheck, UserCheck, UserX } from 'lucide-react';
+import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { identityApi } from '../../api/identity';
 import type { User } from '../../api/types';
 import { useSession } from '../../auth/AuthContext';
+import { canDeleteUser } from '../../auth/permissions';
 import { RoleBadge, UserStatusBadge } from '../../components/ui/Badge';
 import { Button, IconButton } from '../../components/ui/Button';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { Alert } from '../../components/ui/Feedback';
 import { ConfirmDialog } from '../../components/ui/Modal';
 import { Avatar, Card, LoadMore, PageHeader } from '../../components/ui/Page';
 import { useToast } from '../../components/ui/Toast';
@@ -17,7 +19,7 @@ import { PasswordModal, UserFormModal } from './UserForms';
 const PAGE_SIZE = 20;
 
 export function UsersPage() {
-  const { user: me } = useSession();
+  const { user: me, role } = useSession();
   const toast = useToast();
   const list = useCursorList((cursor, signal) => identityApi.listUsers({ limit: PAGE_SIZE, cursor }, signal), []);
   const [editing, setEditing] = useState<User | 'new' | null>(null);
@@ -25,6 +27,9 @@ export function UsersPage() {
   const [toggleTarget, setToggleTarget] = useState<User | null>(null);
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const replace = (updated: User) =>
     list.setItems((items) => items.map((u) => (u.email === updated.email ? updated : u)));
@@ -43,6 +48,23 @@ export function UsersPage() {
       setToggleError(errorMessage(error));
     } finally {
       setToggling(false);
+    }
+  };
+
+  // DELETE /users/{email} → 204. Se quita de la lista sin recargar; 400/403/404/409 muestran el mensaje del backend.
+  const deleteUser = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await identityApi.deleteUser(deleteTarget.email);
+      list.setItems((items) => items.filter((u) => u.email !== deleteTarget.email));
+      toast.success('Usuario eliminado', deleteTarget.email);
+      setDeleteTarget(null);
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -82,6 +104,18 @@ export function UsersPage() {
                 onClick={() => {
                   setToggleError(null);
                   setToggleTarget(u);
+                }}
+              />
+            )}
+            {canDeleteUser(role, me.email, u.email) && (
+              <IconButton
+                label="Eliminar usuario"
+                icon={<Trash2 size={15} />}
+                className="btn-icon btn-icon-danger"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteTarget(u);
                 }}
               />
             )}
@@ -164,6 +198,27 @@ export function UsersPage() {
         onConfirm={toggleStatus}
         onCancel={() => setToggleTarget(null)}
       />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar usuario"
+        message={
+          <>
+            Se eliminará el acceso de <strong>{deleteTarget?.email}</strong>. Esta acción no se puede deshacer.
+          </>
+        }
+        confirmLabel="Eliminar"
+        tone="danger"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={deleteUser}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      >
+        {deleteTarget?.employeeId && (
+          <Alert tone="warning">
+            Este usuario está vinculado a un empleado. El sistema no permite borrarlo: da de baja al empleado desde su ficha.
+          </Alert>
+        )}
+      </ConfirmDialog>
     </>
   );
 }

@@ -17,6 +17,12 @@ import { JobDetailPage } from './features/recruitment/JobDetailPage';
 import { AttendancePage } from './features/timeleave/AttendancePage';
 import { LeavePage } from './features/timeleave/LeavePage';
 import { ApprovalsPage } from './features/timeleave/ApprovalsPage';
+import { PayrollRunsPage } from './features/payroll/PayrollRunsPage';
+import { PayrollRunDetailPage } from './features/payroll/PayrollRunDetailPage';
+import { MyPayslipsPage } from './features/payroll/MyPayslipsPage';
+import { SignupPage } from './features/signup/SignupPage';
+import { CompanySetupPage } from './features/signup/CompanySetupPage';
+import { sessionKey } from './auth/sessionStore';
 
 /**
  * Aislamiento entre tenants: todo el árbol autenticado se vuelve a montar (key) al cambiar
@@ -24,7 +30,7 @@ import { ApprovalsPage } from './features/timeleave/ApprovalsPage';
  */
 function SessionBoundary() {
   const { session } = useAuth();
-  const key = session ? `${session.claims.tenantId}:${session.claims.sub}` : 'anon';
+  const key = sessionKey(session);
   return (
     <Fragment key={key}>
       <AppLayout />
@@ -39,6 +45,7 @@ export function App() {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route element={<RequireAuth />}>
               <Route element={<SessionBoundary />}>
                 <Route index element={<DashboardPage />} />
@@ -66,6 +73,15 @@ export function App() {
                 <Route element={<RequirePermission permission="leave.approve" />}>
                   <Route path="approvals" element={<ApprovalsPage />} />
                 </Route>
+
+                <Route element={<RequirePermission permission="payroll.manage" />}>
+                  <Route path="payroll" element={<PayrollRunsPage />} />
+                  <Route path="payroll/:runId" element={<PayrollRunDetailPage />} />
+                </Route>
+                <Route element={<RequirePermission permission="payslips.self" />}>
+                  <Route path="payslips" element={<MyPayslipsPage />} />
+                </Route>
+                <Route path="setup" element={<CompanySetupPage />} />
 
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

@@ -1,6 +1,7 @@
 /**
- * Cliente HTTP común a las cuatro APIs. Los componentes nunca llaman a fetch directamente:
- * usan los módulos api/identity.ts, api/employees.ts, api/recruitment.ts y api/timeLeave.ts.
+ * Cliente HTTP común a todas las APIs. Los componentes nunca llaman a fetch directamente:
+ * usan los módulos api/identity.ts, api/employees.ts, api/recruitment.ts, api/timeLeave.ts,
+ * api/payroll.ts y api/notifications.ts. Un 204 (DELETE) devuelve undefined sin parsear JSON.
  */
 import { SERVICE_ENV, SERVICE_LABEL, USE_MOCKS, serviceBaseUrl, type ServiceName } from '../config/env';
 
@@ -73,6 +74,11 @@ export interface RequestOptions {
   /** false solo para endpoints públicos (login). */
   auth?: boolean;
   signal?: AbortSignal;
+  /**
+   * Servicio opcional (Notifications): un 401 suyo NO cierra la sesión del resto de la app.
+   * El token se sigue enviando igual.
+   */
+  isolated?: boolean;
 }
 
 export function buildQuery(query?: Record<string, QueryValue>): string {
@@ -96,7 +102,7 @@ async function transport(service: ServiceName, url: string, init: RequestInit): 
 }
 
 export async function request<T>(service: ServiceName, path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, auth = true, signal } = options;
+  const { method = 'GET', body, query, auth = true, signal, isolated = false } = options;
   const base = USE_MOCKS ? `mock://${service}` : serviceBaseUrl(service);
   if (!base) {
     throw new ApiError(
@@ -111,7 +117,7 @@ export async function request<T>(service: ServiceName, path: string, options: Re
   if (auth) {
     const token = config.getToken();
     if (!token) {
-      config.onUnauthorized('expired');
+      if (!isolated) config.onUnauthorized('expired');
       throw new ApiError('Tu sesión expiró. Vuelve a iniciar sesión.', 401, service);
     }
     headers.Authorization = `Bearer ${token}`;
@@ -145,7 +151,7 @@ export async function request<T>(service: ServiceName, path: string, options: Re
   }
 
   if (!response.ok) {
-    if (response.status === 401 && auth) config.onUnauthorized('unauthorized');
+    if (response.status === 401 && auth && !isolated) config.onUnauthorized('unauthorized');
     const message = extractErrorMessage(data) ?? defaultMessage(response.status);
     throw new ApiError(message, response.status, service);
   }

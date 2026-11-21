@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { EmployeeStatus, JobStatus, LeaveStatus, LeaveType, Role, Stage, UserStatus } from '../../api/types';
+import type { EmployeeStatus, JobStatus, LeaveStatus, LeaveType, PayrollRunStatus, Role, Stage, UserStatus } from '../../api/types';
 import { ROLE_LABEL } from '../../auth/permissions';
 
 export type BadgeTone = 'gray' | 'blue' | 'green' | 'amber' | 'red' | 'violet' | 'teal';
@@ -75,3 +75,23 @@ export const LeaveStatusBadge = ({ status }: { status: LeaveStatus }) => {
   const [label, tone] = LEAVE_STATUS[status] ?? [status, 'gray'];
   return <Badge tone={tone} dot>{label}</Badge>;
 };
+
+export const RUN_STATUS_LABEL: Record<PayrollRunStatus, string> = {
+  PENDING: 'En cola',
+  PROCESSING: 'Procesando',
+  COMPLETED: 'Completada',
+  FAILED: 'Fallida',
+};
+const RUN_STATUS_TONE: Record<PayrollRunStatus, BadgeTone> = {
+  PENDING: 'amber',
+  PROCESSING: 'blue',
+  COMPLETED: 'green',
+  FAILED: 'red',
+};
+export const RunStatusBadge = ({ status }: { status: PayrollRunStatus }) => (
+  <span className={status === 'PENDING' || status === 'PROCESSING' ? 'badge-live' : undefined}>
+    <Badge tone={RUN_STATUS_TONE[status] ?? 'gray'} dot>
+      {RUN_STATUS_LABEL[status] ?? status}
+    </Badge>
+  </span>
+);

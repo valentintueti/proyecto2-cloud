@@ -1,6 +1,6 @@
 import { Building, CalendarCheck, Eye, EyeOff, FlaskConical, Lock, Mail, ShieldCheck, Users } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { sessionStore } from '../auth/sessionStore';
 import { BrandMark } from '../components/layout/AppLayout';
@@ -164,6 +164,9 @@ export function LoginPage() {
           <Button type="submit" block loading={submitting}>
             Ingresar
           </Button>
+          <p className="login-foot-link">
+            ¿Tu empresa aún no usa TalentCloud? <Link to="/signup">Registrar mi empresa</Link>
+          </p>
 
           {USE_MOCKS && (
             <div className="demo-hint">

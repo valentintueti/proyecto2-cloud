@@ -23,6 +23,11 @@ export interface SessionState {
 
 const STORAGE_KEY = 'talentcloud.session';
 
+/** Clave del árbol autenticado: cambia con el tenant o el usuario (aislamiento entre tenants). */
+export function sessionKey(session: Pick<Session, 'claims'> | null): string {
+  return session ? `${session.claims.tenantId}:${session.claims.sub}` : 'anon';
+}
+
 function safeStorage(): Storage | null {
   try {
     return typeof window !== 'undefined' ? window.sessionStorage : null;

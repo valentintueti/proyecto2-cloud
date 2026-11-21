@@ -37,6 +37,13 @@ export const PERMISSIONS = {
   'leave.self': ALL,
   'leave.approve': RECRUITERS,
   'balance.self': ALL,
+
+  // Issue #15
+  'users.delete': [ADMIN],
+  'jobs.delete': [ADMIN],
+  'applications.delete': [ADMIN],
+  'payroll.manage': [ADMIN],
+  'payslips.self': ALL,
 } as const satisfies Record<string, Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -44,6 +51,16 @@ export type Permission = keyof typeof PERMISSIONS;
 export function can(role: Role | null | undefined, permission: Permission): boolean {
   if (!role) return false;
   return (PERMISSIONS[permission] as readonly Role[]).includes(role);
+}
+
+/** Botón de borrar usuario: solo ADMIN_RRHH y nunca sobre sí mismo (el backend responde 400). */
+export function canDeleteUser(role: Role | null | undefined, myEmail: string, targetEmail: string): boolean {
+  return can(role, 'users.delete') && myEmail.trim().toLowerCase() !== targetEmail.trim().toLowerCase();
+}
+
+/** Botón de borrar postulación: solo ADMIN_RRHH y nunca en HIRED (el backend responde 409). */
+export function canDeleteApplication(role: Role | null | undefined, stage: string): boolean {
+  return can(role, 'applications.delete') && stage !== 'HIRED';
 }
 
 export const ROLE_LABEL: Record<Role, string> = {

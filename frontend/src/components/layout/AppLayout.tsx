@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useSession } from '../../auth/AuthContext';
 import { ROLE_LABEL } from '../../auth/permissions';
-import { USE_MOCKS } from '../../config/env';
+import { USE_MOCKS, notificationsEnabled } from '../../config/env';
+import { NotificationBell } from '../../features/notifications/NotificationBell';
 import { Avatar } from '../ui/Page';
 import { RoleBadge } from '../ui/Badge';
 import { NAVIGATION } from './navigation';
@@ -91,6 +92,8 @@ function Header({ onToggleMenu, menuOpen }: { onToggleMenu: () => void; menuOpen
         {USE_MOCKS && <span className="demo-pill">DEMO</span>}
       </div>
       <div className="topbar-user">
+        {/* Con VITE_NOTIFICATIONS_API_URL vacía no se monta: ni campana ni peticiones. */}
+        {notificationsEnabled() && <NotificationBell />}
         <div className="topbar-user-text">
           <strong>{user.name}</strong>
           <span>

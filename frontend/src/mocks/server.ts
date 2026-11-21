@@ -833,14 +833,479 @@ const timeLeaveRoutes: [string, RegExp, Handler][] = [
   ],
 ];
 
+// ── Issue #15: borrados (identity y recruitment) ────────────────────────────
+identityRoutes.push([
+  'DELETE',
+  /^\/users\/([^/]+)$/,
+  (req) => {
+    const ctx = requireRole(req, 'ADMIN_RRHH');
+    const email = normEmail(decodeURIComponent(req.params[0]));
+    if (email === ctx.userId) throw bad('No puedes eliminar tu propio usuario');
+    const users = tenant(req).users;
+    const user = users.find((u) => u.email === email);
+    if (!user) throw notFound('Usuario no encontrado');
+    if (user.employeeId) throw conflict('Da de baja al empleado en lugar de borrar el usuario');
+    users.splice(users.indexOf(user), 1);
+    return { status: 204 };
+  },
+]);
+
+recruitmentRoutes.push(
+  [
+    'DELETE',
+    /^\/jobs\/([^/]+)$/,
+    (req) => {
+      requireRole(req, 'ADMIN_RRHH');
+      const t = tenant(req);
+      const job = t.jobs.find((j) => j.jobId === req.params[0]);
+      if (!job) throw notFound('Vacante no encontrada');
+      if (t.applications.some((a) => a.jobId === job.jobId)) throw conflict('Elimina o cierra primero sus postulaciones');
+      t.jobs.splice(t.jobs.indexOf(job), 1);
+      return { status: 204 };
+    },
+  ],
+  [
+    'DELETE',
+    /^\/jobs\/([^/]+)\/applications\/([^/]+)$/,
+    (req) => {
+      requireRole(req, 'ADMIN_RRHH');
+      const t = tenant(req);
+      const app = t.applications.find((a) => a.jobId === req.params[0] && a.applicationId === req.params[1]);
+      if (!app) throw notFound('Postulación no encontrada');
+      if (app.stage === 'HIRED') throw conflict('No se puede eliminar una postulación contratada');
+      t.applications.splice(t.applications.indexOf(app), 1);
+      if (app.cvKey) cvFiles.delete(app.cvKey);
+      return { status: 204 };
+    },
+  ],
+);
+
+// Datos extra para probar borrados: usuarios sin empleado y una vacante sin postulaciones.
+for (const [tenantId, t] of Object.entries(db)) {
+  const domain = t.users[0]?.email.split('@')[1] ?? `${tenantId}.com`;
+  for (const [name, role] of [
+    ['Reclutadora Externa', 'MANAGER'],
+    ['Auditor Temporal', 'EMPLOYEE'],
+  ] as [string, Role][]) {
+    const email = `${name.split(' ')[0].toLowerCase()}@${domain}`;
+    t.users.push({ userId: email, email, name, role, status: 'ACTIVE', createdAt: nowIso(), password: 'demo1234' });
+  }
+  t.jobs.push({
+    jobId: uuid(),
+    title: 'Practicante de Marketing (borrador)',
+    description: 'Vacante sin postulaciones: se puede eliminar.',
+    location: 'Remoto',
+    openings: 1,
+    status: 'CLOSED',
+    departmentId: t.departments[0]?.id ?? null,
+    createdBy: t.users[0]?.email ?? 'admin',
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  });
+}
+
+// ── Issue #15: registro de empresas y "empresa en preparación" (503) ────────
+const SETUP_MS = 7000; // employees y payroll responden 503 durante este tiempo tras el registro
+const setupUntil = new Map<string, number>();
+
+function slugTenant(companyName: string): string {
+  const base =
+    companyName
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/^[^a-z]+/, '')
+      .slice(0, 24) || 'empresa';
+  let id = base.length >= 2 ? base : `${base}co`;
+  for (let n = 2; db[id]; n += 1) id = `${base.slice(0, 22)}_${n}`;
+  return id;
+}
+
+identityRoutes.push([
+  'POST',
+  /^\/signup$/,
+  ({ body }) => {
+    requireFields(body, 'companyName', 'email', 'password');
+    const companyName = String(body.companyName).trim();
+    if (companyName.length < 2 || companyName.length > 100) throw bad('companyName debe tener entre 2 y 100 caracteres');
+    const email = normEmail(body.email);
+    if (String(body.password).length < 8) throw bad('La contraseña debe tener al menos 8 caracteres');
+    const tenantId = slugTenant(companyName);
+    const user: MockUser = {
+      userId: email,
+      email,
+      name: 'Administrador',
+      role: 'ADMIN_RRHH',
+      status: 'ACTIVE',
+      createdAt: nowIso(),
+      password: String(body.password),
+    };
+    db[tenantId] = {
+      name: companyName,
+      users: [user],
+      departments: [],
+      positions: [],
+      employees: [],
+      jobs: [],
+      applications: [],
+      attendance: [],
+      leaves: [],
+      balances: [],
+    };
+    setupUntil.set(tenantId, Date.now() + SETUP_MS);
+    return { status: 201, body: { tenantId, token: makeToken(email, tenantId, 'ADMIN_RRHH'), tokenType: 'Bearer', user: publicUser(user) } };
+  },
+]);
+
+// ── Issue #15: Payroll ──────────────────────────────────────────────────────
+interface MockRun {
+  runId: string;
+  period: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  processed: number;
+  totalGross: number;
+  totalNet: number;
+  createdBy: string;
+  createdAt: string;
+  completedAt: string | null;
+  /** Momento en que se aceptó (o reintentó) la corrida, para simular el avance por tiempo. */
+  acceptedAt: number;
+  /** Procesados al aceptar: un reintento continúa desde aquí, como el backend real. */
+  base: number;
+}
+interface MockPayslip {
+  payslipId: string;
+  runId: string;
+  employeeId: string;
+  email: string;
+  fullName: string;
+  period: string;
+  baseSalary: number;
+  unpaidLeaveDays: number;
+  gross: number;
+  pensionDeduction: number;
+  leaveDeduction: number;
+  net: number;
+  createdAt: string;
+}
+const payroll = new Map<string, { runs: MockRun[]; payslips: MockPayslip[] }>();
+const PENDING_MS = 3000;
+const EMPLOYEES_PER_SECOND = 3;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+function payrollOf(tenantId: string) {
+  let p = payroll.get(tenantId);
+  if (!p) {
+    p = { runs: [], payslips: [] };
+    payroll.set(tenantId, p);
+  }
+  return p;
+}
+
+function eligible(t: TenantDb) {
+  return [...t.employees].filter((e) => e.status === 'ACTIVE').sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function makePayslip(run: MockRun, e: Employee, index: number): MockPayslip {
+  const unpaid = index % 5 === 0 ? 2 : 0;
+  const base = Number(e.salary);
+  // Igual que payroll/src/calculator.py: bruto = base (mes completo), pensión 13 %, licencia = base/30 por día.
+  const leaveDeduction = round2((base / 30) * unpaid);
+  const pension = round2(base * 0.13);
+  return {
+    payslipId: uuid(),
+    runId: run.runId,
+    employeeId: e.id,
+    email: e.email,
+    fullName: `${e.firstName} ${e.lastName}`,
+    period: run.period,
+    baseSalary: base,
+    unpaidLeaveDays: unpaid,
+    gross: base,
+    pensionDeduction: pension,
+    leaveDeduction,
+    net: round2(base - pension - leaveDeduction),
+    createdAt: nowIso(),
+  };
+}
+
+/** Avanza la corrida según el tiempo transcurrido (simula el worker por lotes). */
+function advance(tenantId: string, run: MockRun) {
+  if (run.status === 'COMPLETED' || run.status === 'FAILED') return;
+  const elapsed = Date.now() - run.acceptedAt;
+  if (elapsed < PENDING_MS) return;
+  run.status = 'PROCESSING';
+  const p = payrollOf(tenantId);
+  const people = eligible(db[tenantId]);
+  const target = Math.min(people.length, run.base + Math.floor(((elapsed - PENDING_MS) / 1000) * EMPLOYEES_PER_SECOND));
+  for (let i = countSlips(p, run.runId); i < target; i += 1) p.payslips.push(makePayslip(run, people[i], i));
+  run.processed = countSlips(p, run.runId);
+  if (run.processed >= people.length) {
+    const slips = p.payslips.filter((s) => s.runId === run.runId);
+    run.status = 'COMPLETED';
+    run.totalGross = round2(slips.reduce((sum, s) => sum + s.gross, 0));
+    run.totalNet = round2(slips.reduce((sum, s) => sum + s.net, 0));
+    run.completedAt = nowIso();
+  }
+}
+
+function countSlips(p: { payslips: MockPayslip[] }, runId: string) {
+  return p.payslips.filter((s) => s.runId === runId).length;
+}
+
+function publicRun({ acceptedAt: _a, base: _b, ...run }: MockRun) {
+  return run;
+}
+
+function publicSlip(s: MockPayslip, withName: boolean) {
+  const { fullName, ...rest } = s;
+  return withName ? { ...rest, fullName } : rest;
+}
+
+function offsetPage<T>(items: T[], req: Req) {
+  const limit = limitOf(req);
+  const offset = Number(req.query.get('offset') ?? '0');
+  if (!Number.isInteger(offset) || offset < 0) throw bad('offset debe ser un entero');
+  return { items: items.slice(offset, offset + limit), total: items.length, limit, offset };
+}
+
+function periodOffset(months: number): string {
+  const [y, m] = todayISO().split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - months, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Historial de ejemplo: dos meses completados y uno fallido (para probar «Reintentar»).
+for (const [tenantId, t] of Object.entries(db)) {
+  const p = payrollOf(tenantId);
+  const admin = t.users.find((u) => u.role === 'ADMIN_RRHH')?.email ?? 'admin';
+  for (const months of [2, 3]) {
+    const run: MockRun = {
+      runId: uuid(),
+      period: periodOffset(months),
+      status: 'PROCESSING',
+      processed: 0,
+      totalGross: 0,
+      totalNet: 0,
+      createdBy: admin,
+      createdAt: `${periodOffset(months - 1)}-01T15:00:00+00:00`,
+      completedAt: null,
+      acceptedAt: 0,
+      base: 0,
+    };
+    p.runs.push(run);
+    advance(tenantId, run);
+    run.completedAt = `${periodOffset(months - 1)}-01T15:02:00+00:00`;
+  }
+  p.runs.push({
+    runId: uuid(),
+    period: periodOffset(1),
+    status: 'FAILED',
+    processed: 0,
+    totalGross: 0,
+    totalNet: 0,
+    createdBy: admin,
+    createdAt: `${periodOffset(0)}-01T15:00:00+00:00`,
+    completedAt: null,
+    acceptedAt: 0,
+    base: 0,
+  });
+}
+
+const payrollRoutes: [string, RegExp, Handler][] = [
+  [
+    'POST',
+    /^\/payroll-runs$/,
+    (req) => {
+      const ctx = requireRole(req, 'ADMIN_RRHH');
+      const period = String(req.body.period ?? '');
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw bad('period debe tener formato YYYY-MM');
+      if (period > todayISO().slice(0, 7)) throw bad('period no puede ser un mes futuro');
+      const p = payrollOf(ctx.tenantId);
+      let run = p.runs.find((r) => r.period === period);
+      if (run) advance(ctx.tenantId, run);
+      if (run && run.status === 'FAILED') {
+        run.status = 'PENDING';
+        run.completedAt = null;
+        run.acceptedAt = Date.now();
+        run.base = run.processed;
+      } else if (run && run.status !== 'PENDING') {
+        throw conflict('Ya existe una corrida de planilla para ese período');
+      } else if (!run) {
+        run = {
+          runId: uuid(),
+          period,
+          status: 'PENDING',
+          processed: 0,
+          totalGross: 0,
+          totalNet: 0,
+          createdBy: ctx.userId,
+          createdAt: nowIso(),
+          completedAt: null,
+          acceptedAt: Date.now(),
+          base: 0,
+        };
+        p.runs.push(run);
+      }
+      return { status: 202, body: { runId: run.runId, period, status: 'PENDING' } };
+    },
+  ],
+  [
+    'GET',
+    /^\/payroll-runs$/,
+    (req) => {
+      const ctx = requireRole(req, 'ADMIN_RRHH');
+      const runs = payrollOf(ctx.tenantId).runs;
+      runs.forEach((r) => advance(ctx.tenantId, r));
+      return { body: offsetPage([...runs].sort((a, b) => b.period.localeCompare(a.period)).map(publicRun), req) };
+    },
+  ],
+  [
+    'GET',
+    /^\/payroll-runs\/([^/]+)$/,
+    (req) => {
+      const ctx = requireRole(req, 'ADMIN_RRHH');
+      const run = payrollOf(ctx.tenantId).runs.find((r) => r.runId === req.params[0]);
+      if (!run) throw notFound('Corrida de planilla no encontrada');
+      advance(ctx.tenantId, run);
+      return { body: publicRun(run) };
+    },
+  ],
+  [
+    'GET',
+    /^\/payroll-runs\/([^/]+)\/payslips$/,
+    (req) => {
+      const ctx = requireRole(req, 'ADMIN_RRHH');
+      const p = payrollOf(ctx.tenantId);
+      if (!p.runs.some((r) => r.runId === req.params[0])) throw notFound('Corrida de planilla no encontrada');
+      const q = (req.query.get('q') ?? '').trim().toLowerCase();
+      if (q.length > 100) throw bad('q admite hasta 100 caracteres');
+      const slips = p.payslips
+        .filter((s) => s.runId === req.params[0] && (!q || s.email.toLowerCase().includes(q) || s.fullName.toLowerCase().includes(q)))
+        .sort((a, b) => a.email.localeCompare(b.email))
+        .map((s) => publicSlip(s, true));
+      return { body: offsetPage(slips, req) };
+    },
+  ],
+  [
+    'GET',
+    /^\/payslips\/me$/,
+    (req) => {
+      const p = payrollOf(req.ctx!.tenantId);
+      const mine = p.payslips
+        .filter((s) => s.email === req.ctx!.userId.toLowerCase())
+        .sort((a, b) => b.period.localeCompare(a.period))
+        .map((s) => publicSlip(s, false));
+      return { body: offsetPage(mine, req) };
+    },
+  ],
+  [
+    'GET',
+    /^\/payslips\/([^/]+)\/document-url$/,
+    (req) => {
+      const ctx = req.ctx!;
+      const slip = payrollOf(ctx.tenantId).payslips.find((s) => s.payslipId === req.params[0]);
+      if (!slip) throw notFound('Boleta no encontrada');
+      if (ctx.role !== 'ADMIN_RRHH' && slip.email !== ctx.userId.toLowerCase()) throw forbidden('No tienes permiso para descargar esta boleta');
+      const text = [
+        `BOLETA DE PAGO (SIMULADA - SOLO DESARROLLO)`,
+        `Empresa: ${db[ctx.tenantId].name}`,
+        `Empleado: ${slip.fullName} <${slip.email}>`,
+        `Periodo: ${slip.period}`,
+        `Salario base: ${slip.baseSalary.toFixed(2)}`,
+        `Días de licencia no remunerada: ${slip.unpaidLeaveDays}`,
+        `Bruto: ${slip.gross.toFixed(2)}`,
+        `Descuento pensión: ${slip.pensionDeduction.toFixed(2)}`,
+        `Descuento licencias: ${slip.leaveDeduction.toFixed(2)}`,
+        `Neto: ${slip.net.toFixed(2)}`,
+        `URL generada: ${nowIso()} (en AWS dura 5 minutos)`,
+      ].join('\n');
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+      return { body: { downloadUrl: url } };
+    },
+  ],
+];
+
+// ── Issue #15: Notifications (contrato del issue; el servicio real aún no existe) ──
+interface MockNotification {
+  notificationId: string;
+  title: string;
+  message: string;
+  type: string;
+  link: string | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+const notifications = new Map<string, MockNotification[]>();
+
+function notificationsOf(ctx: Ctx): MockNotification[] {
+  const key = `${ctx.tenantId}:${ctx.userId}`;
+  let list = notifications.get(key);
+  if (!list) {
+    const seed: [string, string, string, string | null][] = [
+      // Mismos tipos, títulos y links que services/notifications/src/messages.py.
+      ['LEAVE_APPROVED', 'Solicitud aprobada', 'Tu solicitud de vacaciones fue aprobada.', '/leave'],
+      ['PAYSLIP_READY', 'Boleta de pago disponible', 'Tu boleta de pago ya está disponible.', '/payroll'],
+      ['NEW_TEAM_MEMBER', 'Nuevo integrante en tu equipo', 'Alguien se une a tu equipo.', '/employees'],
+      ['OTHER', 'Enlace externo (prueba)', 'Este enlace apunta fuera de la aplicación y se bloquea.', 'https://example.com/promo'],
+      ['WELCOME', '¡Bienvenido(a)!', 'Tu cuenta ya está lista.', '/'],
+    ];
+    list = Array.from({ length: 14 }, (_, i) => {
+      const [type, title, message, link] = seed[i % seed.length];
+      return {
+        notificationId: uuid(),
+        type,
+        title: i < seed.length ? title : `${title} (#${i + 1})`,
+        message,
+        link,
+        read: i >= 3,
+        readAt: i >= 3 ? nowIso() : null,
+        createdAt: new Date(Date.now() - i * 3_600_000).toISOString(),
+      };
+    });
+    notifications.set(key, list);
+  }
+  return list;
+}
+
+const notificationsRoutes: [string, RegExp, Handler][] = [
+  ['GET', /^\/notifications\/me\/unread-count$/, (req) => ({ body: { unread: notificationsOf(req.ctx!).filter((n) => !n.read).length } })],
+  ['GET', /^\/notifications\/me$/, (req) => ({ body: cursorPage(notificationsOf(req.ctx!).filter((n) => req.query.get('unread') !== 'true' || !n.read), req) })],
+  [
+    'PATCH',
+    /^\/notifications\/([^/]+)\/read$/,
+    (req) => {
+      const n = notificationsOf(req.ctx!).find((x) => x.notificationId === req.params[0]);
+      if (!n) throw notFound('Notificación no encontrada');
+      if (!n.read) Object.assign(n, { read: true, readAt: nowIso() });
+      return { body: n };
+    },
+  ],
+  [
+    'POST',
+    /^\/notifications\/read-all$/,
+    (req) => {
+      const unread = notificationsOf(req.ctx!).filter((n) => !n.read);
+      unread.forEach((n) => Object.assign(n, { read: true, readAt: nowIso() }));
+      return { body: { updated: unread.length } };
+    },
+  ],
+];
+
 const ROUTES: Record<ServiceName, [string, RegExp, Handler][]> = {
   identity: identityRoutes,
   employees: employeesRoutes,
   recruitment: recruitmentRoutes,
   timeLeave: timeLeaveRoutes,
+  payroll: payrollRoutes,
+  notifications: notificationsRoutes,
 };
 
-const PUBLIC_PATHS = new Set(['/auth/login']);
+const PUBLIC_PATHS = new Set(['/auth/login', '/signup']);
 
 function json(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -861,6 +1326,12 @@ export async function mockFetch(service: ServiceName, url: string, init: Request
     ctx = authorize(headers.get('Authorization'));
     // Igual que el authorizer de API Gateway: 401 con {message}.
     if (!ctx) return json(401, { message: 'Unauthorized' });
+  }
+
+  // Empresa recién registrada: employees y payroll responden 503 unos segundos.
+  const until = ctx ? setupUntil.get(ctx.tenantId) : undefined;
+  if ((service === 'employees' || service === 'payroll') && until && Date.now() < until) {
+    return json(503, { error: 'La empresa se está configurando' });
   }
 
   for (const [routeMethod, pattern, handler] of ROUTES[service]) {
