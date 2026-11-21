@@ -9,9 +9,10 @@ Proyecto final CS2032 Cloud Computing (Grupo 2). Gestión de capital humano para
 |---|---|---|---|
 | `infra` | RDS PostgreSQL, SNS `hcm-events`, layer `common` | — | — |
 | `identity` | DynamoDB | `TenantCreated` | `EmployeeCreated`, `EmployeeTerminated` |
-| `employees` | RDS (`hcm_employees`, un schema por tenant) | `EmployeeCreated`, `EmployeeTerminated` | `TenantCreated`, `CandidateHired` |
+| `employees` | RDS (`hcm_employees`, un schema por tenant) | `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated` | `TenantCreated`, `CandidateHired` |
 | `recruitment` | DynamoDB + S3 (CVs) | `CandidateHired` | — |
 | `time_leave` | DynamoDB (2 GSI) | `LeaveApproved` | `EmployeeCreated` |
+| `payroll` (en desarrollo) | RDS (`hcm_payroll`, un schema por tenant) | — | `TenantCreated`, `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated`, `LeaveApproved` |
 | `frontend` | — | — | APIs de los 4 servicios |
 
 - Cada API Gateway valida el JWT con un Lambda Authorizer; el `tenantId` viaja en el token.

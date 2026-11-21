@@ -72,13 +72,13 @@ def test_new_position_salary_range():
 def test_to_api_and_event_data():
     emp_id = uuid.uuid4()
     row = {"id": emp_id, "first_name": "Ana", "last_name": "Pérez", "email": "ana@acme.com",
-           "hire_date": date(2025, 1, 15), "department_id": None,
+           "hire_date": date(2025, 1, 15), "salary": Decimal("4200.50"), "department_id": None,
            "termination_date": date(2026, 1, 31)}
     api = s.to_api(row)
     assert api["id"] == str(emp_id) and api["firstName"] == "Ana" and "first_name" not in api
     assert s.employee_created_data(row, "jefe@acme.com") == {
         "employeeId": str(emp_id), "email": "ana@acme.com", "fullName": "Ana Pérez",
-        "hireDate": "2025-01-15", "managerEmail": "jefe@acme.com"}
+        "hireDate": "2025-01-15", "salary": Decimal("4200.50"), "managerEmail": "jefe@acme.com"}
     assert s.employee_terminated_data(row)["terminationDate"] == "2026-01-31"
 
 

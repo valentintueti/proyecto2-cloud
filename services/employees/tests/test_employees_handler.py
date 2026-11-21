@@ -20,7 +20,7 @@ def test_create_employee_publishes_event(create_employee, published):
     assert event["eventType"] == "EmployeeCreated" and event["tenantId"] == "acme"
     assert event["data"] == {"employeeId": emp["id"], "email": "ana@acme.com",
                              "fullName": f"{emp['firstName']} {emp['lastName']}",
-                             "hireDate": "2025-01-15"}
+                             "hireDate": "2025-01-15", "salary": emp["salary"]}
 
 
 def test_create_with_manager_includes_manager_email(create_employee, published):
@@ -125,12 +125,35 @@ def test_get_invalid_or_missing(db, make_event):
 
 # ── Editar ───────────────────────────────────────────────────────────────────
 
-def test_update(create_employee, make_event):
+def test_update(create_employee, make_event, published):
     emp = create_employee(phone="999")
+    published()  # descarta EmployeeCreated
     resp = employees.update_employee(make_event(
         auth=ADMIN, path={"id": emp["id"]}, body={"salary": 4200.5, "phone": None}), None)
     assert resp["statusCode"] == 200
     assert body(resp)["salary"] == 4200.5 and body(resp)["phone"] is None
+    [event] = published()
+    assert event["eventType"] == "EmployeeUpdated" and event["tenantId"] == "acme"
+    assert event["data"] == {
+        "employeeId": emp["id"], "email": emp["email"],
+        "fullName": f"{emp['firstName']} {emp['lastName']}", "salary": 4200.5,
+    }
+
+
+def test_update_publishes_only_for_profile_changes(create_employee, make_event, published):
+    emp = create_employee()
+    published()
+    for changes in ({"phone": "999"}, {"firstName": emp["firstName"]}):
+        response = employees.update_employee(make_event(
+            auth=ADMIN, path={"id": emp["id"]}, body=changes), None)
+        assert response["statusCode"] == 200
+    assert published() == []
+
+    response = employees.update_employee(make_event(
+        auth=ADMIN, path={"id": emp["id"]}, body={"firstName": "Nombre nuevo"}), None)
+    assert response["statusCode"] == 200
+    [event] = published()
+    assert event["data"]["fullName"] == f"Nombre nuevo {emp['lastName']}"
 
 
 def test_update_rules(create_employee, make_event):

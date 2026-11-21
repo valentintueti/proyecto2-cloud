@@ -55,6 +55,7 @@ Sobre común (lo arma `common.events.publish`): `{eventId, eventType, tenantId, 
 |---|---|---|---|
 | `TenantCreated` | identity | employees, payroll | `{name, plan, adminEmail}` |
 | `CandidateHired` | recruitment | employees | `{applicationId, jobId, email, firstName, lastName, positionTitle, departmentId?, salary?, startDate}` |
-| `EmployeeCreated` | employees | identity, time_leave, payroll | `{employeeId, email, fullName, hireDate, departmentId?, managerEmail?}` |
+| `EmployeeCreated` | employees | identity, time_leave, payroll | `{employeeId, email, fullName, salary, hireDate, departmentId?, managerEmail?}` |
+| `EmployeeUpdated` | employees | payroll | `{employeeId, email, fullName, salary}` |
 | `EmployeeTerminated` | employees | identity, payroll | `{employeeId, email, terminationDate}` |
 | `LeaveApproved` | time_leave | payroll, notifications | `{requestId, email, type, startDate, endDate, days, approvedBy}` |
