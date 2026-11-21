@@ -1,13 +1,14 @@
 import json
 from decimal import Decimal
 from uuid import uuid4
+from urllib.parse import parse_qs, urlparse
 
 import boto3
 import pytest
 from moto import mock_aws
 
 from common import db_pg, events, storage
-from src.handlers import on_employee_event, on_leave_approved, on_payroll_run_requested, payroll_runs
+from src.handlers import on_employee_event, on_leave_approved, on_payroll_run_requested, payroll_runs, payslips
 
 
 PERIOD = "2026-03"
@@ -226,6 +227,103 @@ def test_retry_after_failed_continuation_resumes_at_checkpoint(payroll_tenants, 
         assert saved_ids < {row[0] for row in conn.run("SELECT id FROM payslips")}
     assert len(receive("PayslipGenerated")) == 1
     assert s3.list_objects_v2(Bucket=bucket)["KeyCount"] == 3
+
+
+def read_event(tenant, *, path=None, query=None, role="ADMIN_RRHH", user="admin@example.com"):
+    event = api_event(tenant, role=role)
+    event["requestContext"]["authorizer"]["userId"] = user
+    event["pathParameters"] = path
+    event["queryStringParameters"] = query
+    return event
+
+
+def completed_run(tenant, receive, period=PERIOD):
+    response = payroll_runs.create_run(api_event(tenant, period), None)
+    assert response["statusCode"] == 202
+    records = receive("PayrollRunRequested")
+    assert len(records) == 1
+    assert on_payroll_run_requested.handler({"Records": records}, None) == {"batchItemFailures": []}
+    return json.loads(response["body"])["runId"]
+
+
+def test_admin_reads_own_runs_and_can_filter_and_paginate_payslips(payroll_tenants, aws):
+    tenant, other = payroll_tenants
+    receive, _, _ = aws
+    create_employee(tenant, "Ana Pérez", "ana@example.com", "2025-01-01")
+    create_employee(tenant, "Luis Ruiz", "luis@example.com", "2025-01-01")
+    older = completed_run(tenant, receive, "2026-02")
+    run_id = completed_run(tenant, receive)
+    foreign_run = completed_run(other, receive)
+
+    response = payroll_runs.list_runs(read_event(tenant, query={"limit": "1", "offset": "1"}), None)
+    page = json.loads(response["body"])
+    assert response["statusCode"] == 200 and page["total"] == 2
+    assert [item["runId"] for item in page["items"]] == [older]
+    route = {"runId": run_id}
+    response = payroll_runs.get_run(read_event(tenant, path=route), None)
+    detail = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert (detail["runId"], detail["status"], detail["totalNet"]) == (run_id, "COMPLETED", 5220)
+    assert "nextOffset" not in detail
+
+    for query, emails, total in (
+        ({"q": "ANA"}, ["ana@example.com"], 1),
+        ({"q": "RUIZ"}, ["luis@example.com"], 1),
+        ({"q": "%"}, [], 0),
+        ({"limit": "1", "offset": "1"}, ["luis@example.com"], 2),
+        ({"limit": "1", "offset": "10"}, [], 2),
+    ):
+        response = payslips.list_run_payslips(read_event(tenant, path=route, query=query), None)
+        page = json.loads(response["body"])
+        assert response["statusCode"] == 200 and page["total"] == total
+        assert [item["email"] for item in page["items"]] == emails
+        assert all("documentKey" not in item for item in page["items"])
+
+    foreign_route = {"runId": foreign_run}
+    assert payroll_runs.get_run(read_event(tenant, path=foreign_route), None)["statusCode"] == 404
+    assert payslips.list_run_payslips(read_event(tenant, path=foreign_route), None)["statusCode"] == 404
+    assert payroll_runs.list_runs(read_event(tenant, role="MANAGER"), None)["statusCode"] == 403
+    assert payroll_runs.get_run(read_event(tenant, path=route, role="EMPLOYEE"), None)["statusCode"] == 403
+    assert payslips.list_run_payslips(read_event(tenant, path=route, role="EMPLOYEE"), None)["statusCode"] == 403
+
+
+def test_own_payslips_and_document_permission_use_authenticated_tenant_and_owner(payroll_tenants, aws):
+    tenant, other = payroll_tenants
+    receive, s3, bucket = aws
+    for company in (tenant, other):
+        create_employee(company, "Ana Pérez", "ana@example.com", "2025-01-01")
+    create_employee(tenant, "Luis Ruiz", "luis@example.com", "2025-01-01")
+    completed_run(tenant, receive)
+    completed_run(other, receive)
+
+    own_request = read_event(tenant, role="EMPLOYEE", user="ANA@EXAMPLE.COM",
+                             query={"email": "luis@example.com", "tenantId": other})
+    response = payslips.my_payslips(own_request, None)
+    [own_slip] = json.loads(response["body"])["items"]
+    assert response["statusCode"] == 200 and own_slip["email"] == "ana@example.com"
+
+    path = {"payslipId": own_slip["payslipId"]}
+    for role, user in (("EMPLOYEE", "ana@example.com"), ("MANAGER", "ana@example.com"),
+                       ("ADMIN_RRHH", "admin@example.com")):
+        response = payslips.document_url(read_event(tenant, role=role, user=user, path=path), None)
+        assert response["statusCode"] == 200
+        signed = urlparse(json.loads(response["body"])["downloadUrl"])
+        assert parse_qs(signed.query)["X-Amz-Expires"] == ["300"]
+        prefix = f"tenants/{tenant}/payslips/{PERIOD}/"
+        key = signed.path.lstrip("/").removeprefix(f"{bucket}/")
+        assert key.startswith(prefix)
+        assert s3.get_object(Bucket=bucket, Key=key)["Body"].read().startswith(b"%PDF-1.4")
+
+    for role in ("EMPLOYEE", "MANAGER"):
+        assert payslips.document_url(read_event(tenant, role=role, user="luis@example.com", path=path), None)["statusCode"] == 403
+    assert payslips.document_url(read_event(other, role="EMPLOYEE", user="ana@example.com", path=path), None)["statusCode"] == 404
+    assert payslips.document_url(read_event(other, path=path), None)["statusCode"] == 404
+
+
+@pytest.mark.parametrize("query", [{"limit": "0"}, {"offset": "-1"}, {"offset": "abc"}])
+def test_read_endpoints_reject_invalid_pagination(query):
+    assert payroll_runs.list_runs(read_event("acme", query=query), None)["statusCode"] == 400
+    assert payslips.my_payslips(read_event("acme", role="EMPLOYEE", query=query), None)["statusCode"] == 400
 
 
 @pytest.mark.parametrize(("period", "role", "expected"), [

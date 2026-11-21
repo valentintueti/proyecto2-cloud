@@ -2,6 +2,13 @@
 
 from common.db_pg import query
 
+
+RUN_FIELDS = "id, period, status, processed, total_gross, total_net, created_by, created_at, completed_at"
+PAYSLIP_FIELDS = """
+    p.id, p.run_id, p.employee_id, p.email, p.period, p.base_salary, p.unpaid_leave_days,
+    p.gross, p.pension_deduction, p.leave_deduction, p.net, p.created_at
+"""
+
 def upsert_employee(conn, employee_id, email, full_name, salary, hire_date, occurred_at):
     conn.run(
         """
@@ -181,3 +188,40 @@ def complete_run(conn, run_id):
         ) totals
         WHERE payroll_runs.id = :run_id
         """, run_id=run_id)
+
+
+def _page(conn, fields, source, order, limit, offset, **filters):
+    total = conn.run(f"SELECT count(*) {source}", **filters)[0][0]
+    items = query(conn, f"SELECT {fields} {source} ORDER BY {order} LIMIT :limit OFFSET :offset",
+                  limit=limit, offset=offset, **filters)
+    return items, total
+
+
+def list_runs(conn, limit, offset):
+    return _page(conn, RUN_FIELDS, "FROM payroll_runs", "period DESC", limit, offset)
+
+
+def get_run(conn, run_id):
+    rows = query(conn, f"SELECT {RUN_FIELDS} FROM payroll_runs WHERE id = :run_id", run_id=run_id)
+    return rows[0] if rows else None
+
+
+def list_run_payslips(conn, run_id, term, limit, offset):
+    source = """
+        FROM payslips p LEFT JOIN payroll_employees e ON p.employee_id = e.employee_id
+        WHERE p.run_id = :run_id
+          AND (:term = '' OR strpos(lower(p.email), lower(:term)) > 0
+                          OR strpos(lower(e.full_name), lower(:term)) > 0)
+    """
+    return _page(conn, PAYSLIP_FIELDS + ", e.full_name", source, "p.email, p.id", limit, offset,
+                 run_id=run_id, term=term)
+
+
+def list_employee_payslips(conn, email, limit, offset):
+    return _page(conn, PAYSLIP_FIELDS, "FROM payslips p WHERE p.email = :email", "p.period DESC, p.id",
+                 limit, offset, email=email)
+
+
+def get_payslip_document(conn, payslip_id):
+    rows = query(conn, "SELECT email, document_key FROM payslips WHERE id = :id", id=payslip_id)
+    return rows[0] if rows else None
