@@ -18,10 +18,10 @@
           <mxGeometry as="geometry" x="40" y="918" width="1000" height="24" />
         </mxCell>
         <mxCell id="payroll_runs" value="" style="group;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="120" width="476" height="300" />
+          <mxGeometry as="geometry" x="40" y="120" width="476" height="325" />
         </mxCell>
         <mxCell id="payroll_runs-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payroll_runs">
-          <mxGeometry as="geometry" x="0" y="0" width="476" height="300" />
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="325" />
         </mxCell>
         <mxCell id="payroll_runs-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="payroll_runs">
           <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
@@ -101,14 +101,23 @@
         <mxCell id="payroll_runs-completed_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
           <mxGeometry as="geometry" x="310" y="244" width="150" height="25" />
         </mxCell>
+        <mxCell id="payroll_runs-next_offset-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="1" y="269" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-next_offset-field" value="next_offset" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="66" y="269" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payroll_runs-next_offset-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payroll_runs">
+          <mxGeometry as="geometry" x="310" y="269" width="150" height="25" />
+        </mxCell>
         <mxCell id="payroll_runs-note" value="Único por período dentro del esquema" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="payroll_runs">
-          <mxGeometry as="geometry" x="16" y="269" width="444" height="31" />
+          <mxGeometry as="geometry" x="16" y="294" width="444" height="31" />
         </mxCell>
         <mxCell id="payslips" value="" style="group;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="660" y="120" width="476" height="400" />
+          <mxGeometry as="geometry" x="660" y="120" width="476" height="425" />
         </mxCell>
         <mxCell id="payslips-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payslips">
-          <mxGeometry as="geometry" x="0" y="0" width="476" height="400" />
+          <mxGeometry as="geometry" x="0" y="0" width="476" height="425" />
         </mxCell>
         <mxCell id="payslips-header" value="" style="fillColor=#173350;strokeColor=none;" vertex="1" parent="payslips">
           <mxGeometry as="geometry" x="0" y="0" width="476" height="44" />
@@ -218,11 +227,20 @@
         <mxCell id="payslips-created_at-type" value="TIMESTAMPTZ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
           <mxGeometry as="geometry" x="310" y="344" width="150" height="25" />
         </mxCell>
+        <mxCell id="payslips-batch_offset-stripe" value="" style="fillColor=#F2F6FA;strokeColor=none;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="1" y="369" width="474" height="25" />
+        </mxCell>
+        <mxCell id="payslips-batch_offset-field" value="batch_offset" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#17283F;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="66" y="369" width="235" height="25" />
+        </mxCell>
+        <mxCell id="payslips-batch_offset-type" value="INTEGER" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Consolas;fontSize=15;fontColor=#465A73;fontStyle=0;" vertex="1" parent="payslips">
+          <mxGeometry as="geometry" x="310" y="369" width="150" height="25" />
+        </mxCell>
         <mxCell id="payslips-note" value="Único por (run_id, employee_id)" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="payslips">
-          <mxGeometry as="geometry" x="16" y="369" width="444" height="31" />
+          <mxGeometry as="geometry" x="16" y="394" width="444" height="31" />
         </mxCell>
         <mxCell id="payroll_employees" value="" style="group;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="40" y="555" width="476" height="275" />
+          <mxGeometry as="geometry" x="40" y="575" width="476" height="275" />
         </mxCell>
         <mxCell id="payroll_employees-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="payroll_employees">
           <mxGeometry as="geometry" x="0" y="0" width="476" height="275" />
@@ -300,7 +318,7 @@
           <mxGeometry as="geometry" x="16" y="244" width="444" height="31" />
         </mxCell>
         <mxCell id="leave_records" value="" style="group;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="660" y="555" width="476" height="225" />
+          <mxGeometry as="geometry" x="660" y="575" width="476" height="225" />
         </mxCell>
         <mxCell id="leave_records-border" value="" style="fillColor=#FFFFFF;strokeColor=#C9D6E4;" vertex="1" parent="leave_records">
           <mxGeometry as="geometry" x="0" y="0" width="476" height="225" />
@@ -362,7 +380,7 @@
         <mxCell id="leave_records-note" value="request_id proviene de Tiempo y Ausencias" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=0;" vertex="1" parent="leave_records">
           <mxGeometry as="geometry" x="16" y="194" width="444" height="31" />
         </mxCell>
-        <mxCell id="runs-payslips" style="endArrow=none;startArrow=none;strokeWidth=2;strokeColor=#156A70;exitX=1;exitY=0.5066666666666667;entryX=0;entryY=0.38;" edge="1" parent="1" source="payroll_runs-border" target="payslips-border">
+        <mxCell id="runs-payslips" style="endArrow=none;startArrow=none;strokeWidth=2;strokeColor=#156A70;exitX=1;exitY=0.4676923076923077;entryX=0;entryY=0.35764705882352943;" edge="1" parent="1" source="payroll_runs-border" target="payslips-border">
           <mxGeometry as="geometry" relative="1" />
         </mxCell>
         <mxCell id="one-run" value="1" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=14;fontColor=#156A70;fontStyle=1;" vertex="1" parent="1">

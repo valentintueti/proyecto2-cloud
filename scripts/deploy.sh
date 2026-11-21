@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Despliega los microservicios en orden con Serverless Framework.
 #
-#   bash scripts/deploy.sh                 # todos: infra, employees, identity, recruitment, time_leave
+#   bash scripts/deploy.sh                 # todos: infra, employees, identity, recruitment, time_leave, payroll
 #   bash scripts/deploy.sh identity        # solo los que indiques, en ese orden
 #
 # Lee la configuración del .env de la RAÍZ del repo (Serverless solo buscaría uno por servicio).
@@ -34,7 +34,7 @@ done
 STAGE="${STAGE:-dev}"
 SERVICES=("$@")
 if [[ ${#SERVICES[@]} -eq 0 ]]; then
-  SERVICES=(infra employees identity recruitment time_leave)
+  SERVICES=(infra employees identity recruitment time_leave payroll)
 fi
 
 for svc in "${SERVICES[@]}"; do

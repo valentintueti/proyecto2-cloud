@@ -59,3 +59,5 @@ Sobre común (lo arma `common.events.publish`): `{eventId, eventType, tenantId, 
 | `EmployeeUpdated` | employees | payroll | `{employeeId, email, fullName, salary}` |
 | `EmployeeTerminated` | employees | identity, payroll | `{employeeId, email, terminationDate}` |
 | `LeaveApproved` | time_leave | payroll, notifications | `{requestId, email, type, startDate, endDate, days, approvedBy}` |
+| `PayrollRunRequested` | payroll | payroll | `{runId, period, offset}` |
+| `PayslipGenerated` | payroll | — | `{runId, payslipId, email, period, net}` |

@@ -12,7 +12,7 @@ Proyecto final CS2032 Cloud Computing (Grupo 2). Gestión de capital humano para
 | `employees` | RDS (`hcm_employees`, un schema por tenant) | `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated` | `TenantCreated`, `CandidateHired` |
 | `recruitment` | DynamoDB + S3 (CVs) | `CandidateHired` | — |
 | `time_leave` | DynamoDB (2 GSI) | `LeaveApproved` | `EmployeeCreated` |
-| `payroll` (en desarrollo) | RDS (`hcm_payroll`, un schema por tenant) | — | `TenantCreated`, `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated`, `LeaveApproved` |
+| `payroll` | RDS (`hcm_payroll`, un schema por tenant) y S3 (boletas PDF) | `PayrollRunRequested`, `PayslipGenerated` | `TenantCreated`, `EmployeeCreated`, `EmployeeUpdated`, `EmployeeTerminated`, `LeaveApproved`, `PayrollRunRequested` |
 | `frontend` | — | — | APIs de los 4 servicios |
 
 - Cada API Gateway valida el JWT con un Lambda Authorizer; el `tenantId` viaja en el token.
@@ -23,7 +23,7 @@ Proyecto final CS2032 Cloud Computing (Grupo 2). Gestión de capital humano para
 ## Estructura
 
 ```
-services/<servicio>/   serverless.yml, src/, tests/ (y migrations/ en employees)
+services/<servicio>/   serverless.yml, src/, tests/ (y migrations/ en employees y payroll)
 shared/python/common/  código compartido (se despliega como Lambda Layer)
 scripts/               deploy.sh y bootstrap.py
 frontend/              React + TypeScript + Vite
@@ -76,8 +76,8 @@ En la VM las variables `AWS_*` de credenciales quedan vacías.
 bash scripts/deploy.sh
 ```
 
-Despliega en orden `infra → employees → identity → recruitment → time_leave` (la RDS tarda ~10 min
-la primera vez) y al final imprime la URL de cada API. Para un solo servicio: `bash scripts/deploy.sh identity`.
+Despliega en orden `infra → employees → identity → recruitment → time_leave → payroll` (la RDS tarda ~10 min
+la primera vez) y al final imprime la URL de cada API. Para un solo servicio, usa `bash scripts/deploy.sh payroll`.
 
 ### 4. Bases y tenants
 
@@ -86,8 +86,14 @@ python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
 .venv/bin/python scripts/bootstrap.py
 ```
 
-Crea las bases `hcm_employees` y `hcm_payroll`, los tenants `acme`, `globex` e `initech`
-(admin `admin@<tenant>.com`, contraseña `SEED_ADMIN_PASSWORD`) y verifica sus schemas. Se puede repetir sin riesgo.
+Crea las bases `hcm_employees` y `hcm_payroll`, aplica las migraciones de ambos servicios a los esquemas de
+`TENANTS` y registra en Identidad las empresas que falten. Cada empresa nueva queda con el administrador
+`admin@<tenant>.com` y la contraseña `SEED_ADMIN_PASSWORD`.
+
+Al integrar Payroll en un entorno existente, vuelve a ejecutar el bootstrap con los tenants que quieras
+incorporar. El script copia la ficha laboral vigente de Empleados a Payroll y conserva los perfiles que
+Payroll ya tenga más actualizados. Las ausencias aprobadas antes de desplegar Payroll requieren una carga
+histórica aparte si se van a usar en una corrida.
 
 ### 5. Frontend (Amplify)
 
