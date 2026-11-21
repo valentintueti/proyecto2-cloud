@@ -27,7 +27,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { session, lastLogout } = useSyncExternalStore(sessionStore.subscribe, sessionStore.getState);
+  const { session, lastLogout } = useSyncExternalStore(sessionStore.subscribe, sessionStore.getState, sessionStore.getState);
 
   // Cierra la sesión exactamente cuando vence el token.
   useEffect(() => {
