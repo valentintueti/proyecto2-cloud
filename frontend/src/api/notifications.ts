@@ -1,20 +1,22 @@
 import { request } from './http';
-import type { AppNotification, CursorPage } from './types';
+import type { AppNotification, CursorPage, MarkAllReadResponse } from './types';
 
 const enc = encodeURIComponent;
 export const UNREAD_POLL_INTERVAL_MS = 60_000;
 
 /**
- * El contrato sale del Issue #15: services/notifications todavía no tiene handlers en main.
- * Para no romper si el backend final varía un poco, se normaliza la respuesta:
- * - contador: {count} o {unreadCount}
- * - lista: {items, nextCursor}
- * - leída: `read` (boolean) o `readAt` (fecha)
+ * Contrato de services/notifications/src/handlers/notifications.py (PR #16):
+ * - GET  /notifications/me/unread-count → {unread}
+ * - GET  /notifications/me?limit=&cursor=&unread= → {items, nextCursor}
+ * - PATCH /notifications/{id}/read → la notificación actualizada
+ * - POST /notifications/read-all → {updated}
+ * Las rutas HTTP salen del Issue #15: el servicio aún no tiene serverless.yml en main.
+ * Por robustez el contador también acepta {count}, y `read` se deduce de `readAt` si falta.
  */
 function toCount(body: unknown): number {
   if (body && typeof body === 'object') {
     const record = body as Record<string, unknown>;
-    for (const key of ['count', 'unreadCount', 'unread']) {
+    for (const key of ['unread', 'count', 'unreadCount']) {
       const value = record[key];
       if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value);
     }
@@ -34,7 +36,18 @@ export function normalizeNotification(raw: Record<string, unknown>): AppNotifica
     read,
     readAt,
     createdAt: String(raw.createdAt ?? ''),
+    email: typeof raw.email === 'string' ? raw.email : undefined,
+    sourceEventId: typeof raw.sourceEventId === 'string' ? raw.sourceEventId : undefined,
   };
+}
+
+/**
+ * Destino al pulsar una notificación. PAYSLIP_READY trae link "/payroll" (pantalla solo para
+ * ADMIN_RRHH); como avisa de la boleta propia, se lleva siempre a "Mis boletas".
+ */
+export function notificationLink(n: Pick<AppNotification, 'type' | 'link'>): string | null {
+  if (n.type === 'PAYSLIP_READY') return '/payslips';
+  return n.link ?? null;
 }
 
 export const notificationsApi = {
@@ -53,9 +66,9 @@ export const notificationsApi = {
     };
   },
 
-  /** Puede responder la notificación actualizada o 204: el frontend no depende del cuerpo. */
+  /** Responde la notificación actualizada; el frontend no depende del cuerpo (tolera 204). */
   markRead: (notificationId: string) =>
     request<unknown>('notifications', `/notifications/${enc(notificationId)}/read`, { method: 'PATCH', isolated: true }),
 
-  markAllRead: () => request<unknown>('notifications', '/notifications/read-all', { method: 'POST', isolated: true }),
+  markAllRead: () => request<MarkAllReadResponse | undefined>('notifications', '/notifications/read-all', { method: 'POST', isolated: true }),
 };

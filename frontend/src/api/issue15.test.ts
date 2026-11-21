@@ -275,7 +275,7 @@ describe('13–14. notificaciones', () => {
   it('contador de no leídas, lista por cursor, marcar una y marcar todas', async () => {
     const { notifications } = await load(NOTIF_ENV);
     fetchMock
-      .mockResolvedValueOnce(json(200, { count: 3 }))
+      .mockResolvedValueOnce(json(200, { unread: 3 }))
       .mockResolvedValueOnce(
         json(200, {
           items: [
@@ -286,7 +286,7 @@ describe('13–14. notificaciones', () => {
         }),
       )
       .mockResolvedValueOnce(json(200, { notificationId: 'n1', read: true }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(json(200, { updated: 1 }));
 
     expect(await notifications.notificationsApi.unreadCount()).toBe(3);
     const page = await notifications.notificationsApi.list({ limit: 10, cursor: 'xyz' });
@@ -296,7 +296,7 @@ describe('13–14. notificaciones', () => {
       ['n2', true],
     ]);
     await notifications.notificationsApi.markRead('n1');
-    await expect(notifications.notificationsApi.markAllRead()).resolves.toBeUndefined();
+    await expect(notifications.notificationsApi.markAllRead()).resolves.toEqual({ updated: 1 });
 
     expect(fetchMock.mock.calls.map(([url, init]) => [init.method, url])).toEqual([
       ['GET', 'https://notifications.example.test/dev/notifications/me/unread-count'],
@@ -317,11 +317,39 @@ describe('13–14. notificaciones', () => {
     expect(onUnauthorized).toHaveBeenCalledWith('unauthorized');
   });
 
-  it('el contador acepta {count} o {unreadCount} y tolera respuestas raras', async () => {
+  it('contador: contrato real {unread}; tolera {count} y valores inválidos', async () => {
     const { notifications } = await load(NOTIF_ENV);
-    fetchMock.mockResolvedValueOnce(json(200, { unreadCount: 7 })).mockResolvedValueOnce(json(200, { count: -2 }));
+    fetchMock
+      .mockResolvedValueOnce(json(200, { unread: 4 }))
+      .mockResolvedValueOnce(json(200, { count: 7 }))
+      .mockResolvedValueOnce(json(200, { unread: -2 }));
+    expect(await notifications.notificationsApi.unreadCount()).toBe(4);
     expect(await notifications.notificationsApi.unreadCount()).toBe(7);
     expect(await notifications.notificationsApi.unreadCount()).toBe(0);
+  });
+
+  it('PAYSLIP_READY (link /payroll del backend) lleva a Mis boletas; el resto respeta su link', async () => {
+    const { notifications } = await load(NOTIF_ENV);
+    expect(notifications.notificationLink({ type: 'PAYSLIP_READY', link: '/payroll' })).toBe('/payslips');
+    expect(notifications.notificationLink({ type: 'LEAVE_APPROVED', link: '/leave' })).toBe('/leave');
+    expect(notifications.notificationLink({ type: 'WELCOME', link: null })).toBeNull();
+  });
+
+  it('normaliza el ítem real de la bandeja (docs/notifications-model.json)', async () => {
+    const { notifications } = await load(NOTIF_ENV);
+    const n = notifications.normalizeNotification({
+      notificationId: '8f0c7c0e-1f43-5b8e-9d55-1c4a0f6f2b11',
+      email: 'empleado@acme.com',
+      type: 'LEAVE_APPROVED',
+      title: 'Solicitud aprobada',
+      message: 'Tu solicitud fue aprobada.',
+      link: '/leave',
+      read: true,
+      readAt: '2026-11-20T16:00:00+00:00',
+      sourceEventId: 'evt-1',
+      createdAt: '2026-11-20T15:04:05Z',
+    });
+    expect(n).toMatchObject({ type: 'LEAVE_APPROVED', read: true, link: '/leave', sourceEventId: 'evt-1', email: 'empleado@acme.com' });
   });
 });
 

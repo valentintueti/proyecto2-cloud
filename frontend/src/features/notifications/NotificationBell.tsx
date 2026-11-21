@@ -1,7 +1,7 @@
 import { Bell, CheckCheck, ExternalLink } from 'lucide-react';
 import { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UNREAD_POLL_INTERVAL_MS, notificationsApi } from '../../api/notifications';
+import { UNREAD_POLL_INTERVAL_MS, notificationLink, notificationsApi } from '../../api/notifications';
 import type { AppNotification } from '../../api/types';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Feedback';
@@ -100,7 +100,7 @@ function BellPanel() {
         toast.error('No se pudo marcar como leída', errorMessage(error));
       }
     }
-    const target = safeInternalPath(n.link, window.location.origin);
+    const target = safeInternalPath(notificationLink(n), window.location.origin);
     if (target) {
       setOpen(false);
       navigate(target);
@@ -149,7 +149,7 @@ function BellPanel() {
             {listError && <p className="notif-empty error">{listError}</p>}
             {!listError && !loading && state.items.length === 0 && <p className="notif-empty">No tienes notificaciones.</p>}
             {state.items.map((n) => {
-              const internal = safeInternalPath(n.link, window.location.origin);
+              const internal = safeInternalPath(notificationLink(n), window.location.origin);
               return (
                 <button key={n.notificationId} type="button" className={`notif-item${n.read ? '' : ' unread'}`} onClick={() => openNotification(n)}>
                   {!n.read && <span className="notif-dot" aria-label="Sin leer" />}

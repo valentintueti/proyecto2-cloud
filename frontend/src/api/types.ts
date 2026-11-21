@@ -301,21 +301,29 @@ export interface SignupResponse {
 }
 
 // ── Notifications ───────────────────────────────────────────────────────────
-/**
- * Contrato del Issue #15. services/notifications todavía no tiene handlers en main, así que los
- * campos opcionales se leen de forma tolerante (ver api/notifications.ts).
- */
+/** services/notifications (repository.py y docs/notifications-model.json). */
+export type NotificationType = 'WELCOME' | 'NEW_TEAM_MEMBER' | 'LEAVE_APPROVED' | 'PAYSLIP_READY';
+
 export interface AppNotification {
   notificationId: string;
   title: string;
   message?: string;
-  type?: string;
+  /** Tipos conocidos; se acepta cualquier otro texto por si el backend agrega más. */
+  type?: NotificationType | (string & {});
   link?: string | null;
   read: boolean;
   createdAt: string;
   readAt?: string | null;
+  email?: string;
+  sourceEventId?: string;
 }
 
+/** GET /notifications/me/unread-count */
 export interface UnreadCountResponse {
-  count: number;
+  unread: number;
+}
+
+/** POST /notifications/read-all */
+export interface MarkAllReadResponse {
+  updated: number;
 }

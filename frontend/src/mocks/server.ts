@@ -1247,11 +1247,12 @@ function notificationsOf(ctx: Ctx): MockNotification[] {
   let list = notifications.get(key);
   if (!list) {
     const seed: [string, string, string, string | null][] = [
-      ['LeaveApproved', 'Solicitud aprobada', 'Tus vacaciones fueron aprobadas.', '/leave'],
-      ['PayslipGenerated', 'Boleta disponible', 'Ya puedes descargar tu boleta del mes.', '/payslips'],
-      ['Info', 'Nueva vacante publicada', 'Revisa las vacantes abiertas de tu empresa.', '/jobs'],
-      ['Info', 'Enlace externo', 'Este enlace apunta fuera de la aplicación y se bloquea.', 'https://example.com/promo'],
-      ['Info', 'Bienvenido a TalentCloud', 'Tu cuenta está lista.', null],
+      // Mismos tipos, títulos y links que services/notifications/src/messages.py.
+      ['LEAVE_APPROVED', 'Solicitud aprobada', 'Tu solicitud de vacaciones fue aprobada.', '/leave'],
+      ['PAYSLIP_READY', 'Boleta de pago disponible', 'Tu boleta de pago ya está disponible.', '/payroll'],
+      ['NEW_TEAM_MEMBER', 'Nuevo integrante en tu equipo', 'Alguien se une a tu equipo.', '/employees'],
+      ['OTHER', 'Enlace externo (prueba)', 'Este enlace apunta fuera de la aplicación y se bloquea.', 'https://example.com/promo'],
+      ['WELCOME', '¡Bienvenido(a)!', 'Tu cuenta ya está lista.', '/'],
     ];
     list = Array.from({ length: 14 }, (_, i) => {
       const [type, title, message, link] = seed[i % seed.length];
@@ -1272,8 +1273,8 @@ function notificationsOf(ctx: Ctx): MockNotification[] {
 }
 
 const notificationsRoutes: [string, RegExp, Handler][] = [
-  ['GET', /^\/notifications\/me\/unread-count$/, (req) => ({ body: { count: notificationsOf(req.ctx!).filter((n) => !n.read).length } })],
-  ['GET', /^\/notifications\/me$/, (req) => ({ body: cursorPage(notificationsOf(req.ctx!), req) })],
+  ['GET', /^\/notifications\/me\/unread-count$/, (req) => ({ body: { unread: notificationsOf(req.ctx!).filter((n) => !n.read).length } })],
+  ['GET', /^\/notifications\/me$/, (req) => ({ body: cursorPage(notificationsOf(req.ctx!).filter((n) => req.query.get('unread') !== 'true' || !n.read), req) })],
   [
     'PATCH',
     /^\/notifications\/([^/]+)\/read$/,
@@ -1288,8 +1289,9 @@ const notificationsRoutes: [string, RegExp, Handler][] = [
     'POST',
     /^\/notifications\/read-all$/,
     (req) => {
-      notificationsOf(req.ctx!).forEach((n) => !n.read && Object.assign(n, { read: true, readAt: nowIso() }));
-      return { status: 204 };
+      const unread = notificationsOf(req.ctx!).filter((n) => !n.read);
+      unread.forEach((n) => Object.assign(n, { read: true, readAt: nowIso() }));
+      return { body: { updated: unread.length } };
     },
   ],
 ];

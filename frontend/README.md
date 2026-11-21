@@ -64,7 +64,7 @@ VITE_USE_MOCKS=true
   - Payroll: historial con dos corridas completadas y una **fallida** para probar «Reintentar». Una corrida nueva pasa 3 s en `PENDING` y luego procesa unos 3 empleados por segundo.
   - Borrados: hay usuarios sin empleado vinculado (`reclutadora@`, `auditor@`) y una vacante cerrada sin postulaciones. Los usuarios vinculados a un empleado responden 409.
   - Registro: `POST /signup` crea la empresa en memoria; employees y payroll responden 503 durante 7 s.
-  - Notificaciones: 14 por usuario (3 sin leer), una con enlace externo que se bloquea.
+  - Notificaciones: 14 por usuario (3 sin leer) con los tipos reales (`LEAVE_APPROVED`, `PAYSLIP_READY`…) y una de prueba con enlace externo que se bloquea.
   - La descarga de boletas abre un texto simulado (no un PDF real).
 
 ## Arquitectura
@@ -181,14 +181,14 @@ Los componentes nunca llaman a `fetch` directamente: usan los módulos de `src/a
 - Solo con `VITE_NOTIFICATIONS_API_URL` definida. Si está vacía, el componente no se monta: ni campana ni peticiones.
 - Campana en el encabezado con el contador (`GET /notifications/me/unread-count`), actualizado cada 60 s.
 - Panel con paginación por cursor (`GET /notifications/me?limit=&cursor=`) y diferencia visual entre leídas y no leídas.
-- Al pulsar una se marca como leída (`PATCH /notifications/{id}/read`) y se navega a su `link` **solo si es una ruta interna o del mismo origen**. Los enlaces externos se bloquean.
+- Al pulsar una se marca como leída (`PATCH /notifications/{id}/read`) y se navega a su `link` **solo si es una ruta interna o del mismo origen**. Los enlaces externos se bloquean. `PAYSLIP_READY` lleva a Mis boletas.
 - «Marcar todas como leídas» (`POST /notifications/read-all`). Contador y listado se actualizan sin recargar.
 - **Aislamiento de fallos:** un error o un `401` de Notifications no cierra la sesión ni afecta al resto de la app, y un error de render en la campana solo la oculta.
 
 ## Pruebas
 
 ```bash
-npm test         # 94 pruebas (28 del Issue #4 + 66 del Issue #15)
+npm test         # 96 pruebas (28 del Issue #4 + 68 del Issue #15)
 npm run build    # chequeo de TypeScript + build de producción
 ```
 
@@ -243,7 +243,7 @@ implementaron leyendo los handlers y `serverless.yml` de `services/*` en `main`.
 | time & leave | Contrato leído (handlers y `serverless.yml`, ya en `main`); las rutas coinciden | Respuestas reales |
 | payroll | Contrato leído (`payroll_runs.py`, `payslips.py`, `schemas.py`, `repository.py`, `serverless.yml`) | Corrida real por lotes, descarga desde S3, formato real de los NUMERIC |
 | identity `POST /signup` | **No existe en `main`** (solo `POST /tenants` con `x-platform-key`). Cliente según el Issue #15 | Todo, cuando exista el endpoint |
-| notifications | **Sin API en `main`** (`services/notifications` solo tiene `.gitkeep`; la rama `11-notifications` tampoco). Cliente según el Issue #15 | Todo, cuando exista la API |
+| notifications | Handlers leídos (`notifications.py`, `repository.py`, `messages.py`, PR #16). **Aún no tiene `serverless.yml`**: las rutas HTTP se tomaron del Issue #15 | Rutas reales al desplegarse, CORS y respuesta real |
 
 ### Contratos con contradicciones o sin definir
 
@@ -288,7 +288,9 @@ implementaron leyendo los handlers y `serverless.yml` de `services/*` en `main`.
    - `POST /signup` y la respuesta `{tenantId, token, user}` se tomaron del issue.
    - Ningún handler de employees o payroll devuelve hoy 503 «La empresa se está configurando»; el reintento está listo para cuando exista.
    - Se desconoce cómo generará el backend el `tenantId`.
-9. **Notificaciones.**
-   - Sin API ni contrato de respuesta en el repositorio.
-   - El cliente acepta `{count}` o `{unreadCount}`, `read` o `readAt`, y tolera un 204 en `PATCH`/`read-all`.
+9. **Notificaciones** (PR #16, fusionado durante este issue).
+   - El contador responde `{unread}` (no `{count}`) y `read-all` responde `{updated}`. El cliente usa `unread` y, por robustez, también acepta `{count}`.
+   - `GET /notifications/me` admite además `?unread=true`.
+   - Las notificaciones `PAYSLIP_READY` traen `link: "/payroll"`, una pantalla solo para ADMIN_RRHH. Como avisan de la boleta propia, el frontend las lleva a `/payslips` (Mis boletas) para todos los roles. Convendría cambiar el link en `messages.py`.
+   - El servicio no tiene `serverless.yml`: las rutas `/notifications/me`, `/notifications/me/unread-count`, `/notifications/{id}/read` y `/notifications/read-all` siguen el Issue #15.
 10. **README raíz.** La sección de Amplify lista solo las 4 variables anteriores; falta agregar `VITE_PAYROLL_API_URL` y `VITE_NOTIFICATIONS_API_URL`. No se modificó porque este issue se limita a `frontend/`.
