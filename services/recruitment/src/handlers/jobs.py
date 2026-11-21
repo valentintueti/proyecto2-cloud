@@ -1,7 +1,8 @@
-"""Vacantes: listar, crear, ver y editar."""
+"""Vacantes: listar, crear, ver, editar y eliminar."""
 from common.db_dynamo import TenantTable
 from common.http import (
-    created, get_limit, handle_errors, not_found, ok, parse_body, path_param, query_param,
+    ConflictError, created, get_limit, handle_errors, no_content, not_found, ok, parse_body,
+    path_param, query_param,
 )
 from common.tenant import get_auth_context, require_role
 from src import repository as repo
@@ -42,3 +43,17 @@ def update_job(event, context):
     if updated is None:
         return not_found("Vacante no encontrada")
     return ok(repo.public(updated))
+
+
+@handle_errors
+def delete_job(event, context):
+    ctx = require_role(event, "ADMIN_RRHH")
+    table = TenantTable(ctx["tenantId"])
+    job_id = path_param(event, "jobId")
+    if table.get(repo.job_sk(job_id)) is None:
+        return not_found("Vacante no encontrada")
+    if repo.has_applications(table, job_id):
+        raise ConflictError("Elimina o cierra primero sus postulaciones")
+    if not table.delete(repo.job_sk(job_id)):
+        return not_found("Vacante no encontrada")
+    return no_content()

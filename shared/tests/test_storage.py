@@ -55,3 +55,20 @@ def test_presigned_urls(s3):
     assert key in storage.presigned_download("acme", key)
     with pytest.raises(TenantError):
         storage.presigned_download("globex", key)
+
+
+def test_delete_object(s3):
+    key = storage.tenant_key("acme", "cvs", "a.pdf")
+    storage.put_bytes("acme", key, b"hola")
+    assert storage.delete_object("acme", key) == key
+    objects = boto3.client("s3", region_name="us-east-1").list_objects_v2(Bucket=BUCKET)
+    assert objects.get("KeyCount", 0) == 0
+    storage.delete_object("acme", key)  # borrar algo que ya no existe no falla
+
+
+def test_other_tenant_cannot_delete(s3):
+    key = storage.tenant_key("acme", "cvs", "a.pdf")
+    storage.put_bytes("acme", key, b"hola")
+    with pytest.raises(TenantError):
+        storage.delete_object("globex", key)
+    assert storage.get_bytes("acme", key) == b"hola"

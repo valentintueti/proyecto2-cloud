@@ -104,8 +104,15 @@ class TenantTable:
             raise
         return resp["Attributes"]
 
-    def delete(self, sk: str) -> None:
-        self.table.delete_item(Key=self._key(sk))
+    def delete(self, sk: str) -> bool:
+        """Borra el ítem. Devuelve True si existía y False si no (no borra nada)."""
+        try:
+            self.table.delete_item(Key=self._key(sk), ConditionExpression="attribute_exists(PK)")
+        except ClientError as exc:
+            if _is_conditional_failure(exc):
+                return False
+            raise
+        return True
 
     @staticmethod
     def _encode_cursor(last_key: dict) -> str:

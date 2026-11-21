@@ -85,6 +85,20 @@ def test_delete(table):
     assert acme.get("EMP#1") is None
 
 
+def test_delete_indica_si_existia(table):
+    acme = TenantTable("acme")
+    acme.put("EMP#1", {"name": "Ana"})
+    assert acme.delete("EMP#1") is True
+    assert acme.delete("EMP#1") is False
+    assert acme.delete("EMP#no-existe") is False
+
+
+def test_delete_no_borra_en_otro_tenant(table):
+    TenantTable("acme").put("EMP#1", {"name": "Ana"})
+    assert TenantTable("globex").delete("EMP#1") is False
+    assert TenantTable("acme").get("EMP#1") is not None
+
+
 def test_tenant_invalido():
     with pytest.raises(TenantError):
         TenantTable("acme; DROP")
