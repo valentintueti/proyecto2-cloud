@@ -5,7 +5,9 @@ import {
   ClipboardCheck,
   Building2,
   IdCard,
+  Landmark,
   LayoutDashboard,
+  ReceiptText,
   ShieldCheck,
   UserCircle,
   Users,
@@ -54,6 +56,13 @@ export const NAVIGATION: NavSection[] = [
       { to: '/attendance', label: 'Asistencia', icon: CalendarCheck, permission: 'attendance.self' },
       { to: '/leave', label: 'Vacaciones y permisos', icon: CalendarDays, permission: 'leave.self' },
       { to: '/approvals', label: 'Aprobaciones', icon: ClipboardCheck, permission: 'leave.approve' },
+    ],
+  },
+  {
+    title: 'Planillas',
+    items: [
+      { to: '/payroll', label: 'Planillas', icon: Landmark, permission: 'payroll.manage' },
+      { to: '/payslips', label: 'Mis boletas', icon: ReceiptText, permission: 'payslips.self' },
     ],
   },
 ];

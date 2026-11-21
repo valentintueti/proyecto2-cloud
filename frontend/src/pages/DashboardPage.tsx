@@ -6,7 +6,9 @@ import {
   ClipboardCheck,
   Clock,
   IdCard,
+  Landmark,
   Palmtree,
+  ReceiptText,
   ShieldCheck,
   UserPlus,
   Users,
@@ -67,6 +69,8 @@ const QUICK_ACTIONS: QuickAction[] = [
   { to: '/employees', title: 'Empleados', text: 'Directorio y fichas', icon: Users, permission: 'employees.list' },
   { to: '/jobs', title: 'Vacantes', text: 'Procesos de selección', icon: Briefcase, permission: 'jobs.list' },
   { to: '/users', title: 'Usuarios y roles', text: 'Accesos a la plataforma', icon: ShieldCheck, permission: 'users.list' },
+  { to: '/payslips', title: 'Mis boletas', text: 'Boletas de pago', icon: ReceiptText, permission: 'payslips.self' },
+  { to: '/payroll', title: 'Planillas', text: 'Corridas mensuales', icon: Landmark, permission: 'payroll.manage' },
 ];
 
 export function DashboardPage() {
