@@ -1,9 +1,10 @@
-import { ArrowLeft, Download, FileUp, Lock, MapPin, MoveRight, Pencil, Unlock, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Download, FileUp, Lock, MapPin, MoveRight, Pencil, Trash2, Unlock, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { STAGES, allowedTransitions, recruitmentApi } from '../../api/recruitment';
 import type { Application, Stage } from '../../api/types';
 import { useSession } from '../../auth/AuthContext';
+import { canDeleteApplication } from '../../auth/permissions';
 import { JobStatusBadge, STAGE_LABEL, StageBadge } from '../../components/ui/Badge';
 import { Button, IconButton } from '../../components/ui/Button';
 import { DataTable, type Column } from '../../components/ui/DataTable';
@@ -22,12 +23,16 @@ export function JobDetailPage() {
   const { jobId = '' } = useParams();
   const { can } = useSession();
   const toast = useToast();
+  const navigate = useNavigate();
   const job = useAsync((signal) => recruitmentApi.getJob(jobId, signal), [jobId]);
   const org = useOrgData();
   const [editing, setEditing] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [toggleBusy, setToggleBusy] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (job.loading && !job.data) return <LoadingBlock label="Cargando vacante…" />;
   const back = (
@@ -63,6 +68,21 @@ export function JobDetailPage() {
     }
   };
 
+  // DELETE /jobs/{jobId} → 204; 409 si todavía tiene postulaciones (se muestra el mensaje del backend).
+  const deleteJob = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await recruitmentApi.deleteJob(j.jobId);
+      toast.success('Vacante eliminada', j.title);
+      navigate('/jobs', { replace: true }); // la lista se vuelve a cargar sin la vacante
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -80,7 +100,7 @@ export function JobDetailPage() {
           </span>
         }
         actions={
-          can('jobs.update') && (
+          (can('jobs.update') || can('jobs.delete')) && (
             <>
               <Button variant="secondary" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>
                 Editar
@@ -95,6 +115,19 @@ export function JobDetailPage() {
               >
                 {j.status === 'OPEN' ? 'Cerrar vacante' : 'Reabrir'}
               </Button>
+              {can('jobs.delete') && (
+                <Button
+                  variant="danger"
+                  icon={<Trash2 size={16} />}
+                  disabled={deleting}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setConfirmDelete(true);
+                  }}
+                >
+                  Eliminar
+                </Button>
+              )}
             </>
           )
         }
@@ -153,12 +186,31 @@ export function JobDetailPage() {
         onConfirm={toggleStatus}
         onCancel={() => setToggling(false)}
       />
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar vacante"
+        message={
+          <>
+            Se eliminará <strong>{j.title}</strong>. Solo es posible si no tiene postulaciones. Esta acción no se puede deshacer.
+          </>
+        }
+        confirmLabel="Eliminar vacante"
+        tone="danger"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={deleteJob}
+        onCancel={() => !deleting && setConfirmDelete(false)}
+      />
     </>
   );
 }
 
 function ApplicationsSection({ jobId, jobOpen, onJobChanged }: { jobId: string; jobOpen: boolean; onJobChanged: () => void }) {
   const toast = useToast();
+  const { role } = useSession();
+  const [deleteTarget, setDeleteTarget] = useState<Application | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const list = useCursorList((cursor, signal) => recruitmentApi.listApplications(jobId, { limit: 50, cursor }, signal), [jobId]);
   const [stageFilter, setStageFilter] = useState<Stage | ''>('');
   const [registering, setRegistering] = useState(false);
@@ -190,6 +242,23 @@ function ApplicationsSection({ jobId, jobOpen, onJobChanged }: { jobId: string; 
       toast.error('No se pudo descargar el CV', errorMessage(error));
     } finally {
       setDownloading(null);
+    }
+  };
+
+  // DELETE /jobs/{jobId}/applications/{applicationId} → 204; los contadores del pipeline se recalculan de la lista.
+  const deleteApplication = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await recruitmentApi.deleteApplication(deleteTarget.jobId, deleteTarget.applicationId);
+      list.setItems((items) => items.filter((a) => a.applicationId !== deleteTarget.applicationId));
+      toast.success('Postulación eliminada', fullName(deleteTarget));
+      setDeleteTarget(null);
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -245,6 +314,18 @@ function ApplicationsSection({ jobId, jobOpen, onJobChanged }: { jobId: string; 
           >
             Etapa
           </Button>
+          {canDeleteApplication(role, a.stage) && (
+            <IconButton
+              label="Eliminar postulación"
+              icon={<Trash2 size={15} />}
+              className="btn-icon btn-icon-danger"
+              disabled={deleting}
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteTarget(a);
+              }}
+            />
+          )}
         </div>
       ),
     },
@@ -344,6 +425,22 @@ function ApplicationsSection({ jobId, jobOpen, onJobChanged }: { jobId: string; 
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar postulación"
+        message={
+          <>
+            Se eliminará la postulación de <strong>{deleteTarget ? fullName(deleteTarget) : ''}</strong>
+            {deleteTarget?.cvKey ? ' y su CV' : ''}. Esta acción no se puede deshacer.
+          </>
+        }
+        confirmLabel="Eliminar"
+        tone="danger"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={deleteApplication}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      />
       {moving && (
         <StageModal
           application={moving}
