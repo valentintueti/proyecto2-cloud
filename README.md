@@ -96,6 +96,27 @@ incorporar. El script copia la ficha laboral vigente de Empleados a Payroll y co
 Payroll ya tenga más actualizados. Las ausencias aprobadas antes de desplegar Payroll requieren una carga
 histórica aparte si se van a usar en una corrida.
 
+### 4b. Datos de prueba
+
+```bash
+.venv/bin/pip install -r scripts/requirements.txt
+.venv/bin/python scripts/seed/run.py
+.venv/bin/python scripts/seed/verify.py
+```
+
+- Escribe **directo** en DynamoDB y RDS: no pasa por API Gateway ni Lambda y no publica eventos
+  (cargarlo por la API supera los límites del Learner Lab).
+- Por cada tenant de `TENANTS` genera `SEED_RECORDS_PER_TENANT` empleados (10 000 por defecto) y, a partir de
+  la misma lista, al menos esa cantidad de registros en cada microservicio: usuarios, empleados, vacantes y
+  postulaciones, asistencias, solicitudes y saldos, fichas y boletas de planilla, y notificaciones.
+- Usuarios: `empleado1@<tenant>.com` a `empleado10000@<tenant>.com` (los 10 primeros son jefes), con la
+  contraseña `SEED_ADMIN_PASSWORD`. `empleado1` a `empleado20` siempre están activos y tienen datos en todos
+  los módulos, incluida la boleta en PDF.
+- Se puede volver a ejecutar sin duplicar (ids determinísticos). Opciones: `--tenants acme`,
+  `--per-tenant 10000`, `--services identity,employees`.
+- `verify.py` muestra el conteo por servicio y tenant y marca con `*` lo que no llega al mínimo.
+- Tests: `python -m pytest scripts/seed/tests -q`.
+
 ### 5. Frontend (Amplify)
 
 Conectar el repo en Amplify con `frontend/` como raíz de la app y configurar
